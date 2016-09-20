@@ -1,0 +1,19 @@
+java.util.Map interface
+一个映射键到值的对象，该对象不能包含重复的键，每一个键最多对应一个值
+该接口替换了抽象类Dictionary
+Map接口提供了三种集合视图
+    键的集合
+    值的集合
+    键值对集合
+注意：map的键必须是不可变的，比如int，string，而不能使用可变的对象
+equals和hashcode方法不再有用了
+
+重点是HashMap的源代码，一定要看清楚，掌握其中的设计思想
+
+interface Map<K,V>的方法
+    int size(); 获取键值对的熟练
+    
+transient关键字
+1.只能修饰变量，而不能修饰方法和类，注意本地变量是不能被transient关键字修饰的
+2.被transient关键字修饰的变量不能再被序列化，一个静态变量不管是否被transient修饰，均不能被序列化
+3.一旦变量被transient修饰，变量将不再是对象持久化的一部分
