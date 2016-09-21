@@ -17,3 +17,27 @@ transient关键字
 1.只能修饰变量，而不能修饰方法和类，注意本地变量是不能被transient关键字修饰的
 2.被transient关键字修饰的变量不能再被序列化，一个静态变量不管是否被transient修饰，均不能被序列化
 3.一旦变量被transient修饰，变量将不再是对象持久化的一部分
+
+Hashtable
+该类实现了哈希表，映射键和值，任何非空的对象都可以用来作为键或值
+作为键的对象必须实现equals方法和hashCode方法
+影响hashtable性能的两个参数，初始化容量和加载因子
+容量指的是哈希表中的远通数量
+初始化容量是指哈希表被创建时的容量
+单个圆桶存储多个实体，必须被顺序地搜索
+加载因子是指在它的容量自动增长之前哈希表允许获得多少的容量
+默认的加载因子是0.75
+默认初始化容量是11
+快速失败 fast-fail 在迭代的时候不允许并发修改哈希表的内容
+由哈希表的keys和elements方法返回的枚举类不是快速失败的
+hashtable是同步的，如果不需要线程同步，推荐使用hashmap，
+如果需要一个高并发的实现，推荐ConcurrentHashMap
+反正就是不用这个就行了，今天主要学习hashtable的方法和源代码
+hash表底层实现是基于数组的
+private transient Entry<?,?>[] table; //hash表的数据
+private transient int count; //哈希表中实体的数量
+private float loadFactor; //加载因子
+
+以后开发一定要注意代码的健壮性，判断条件啊不能少，我就很少写
+这不是一个好习惯，以后要尽量改正
+
