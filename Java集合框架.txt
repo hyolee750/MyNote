@@ -40,4 +40,129 @@ private float loadFactor; //加载因子
 
 以后开发一定要注意代码的健壮性，判断条件啊不能少，我就很少写
 这不是一个好习惯，以后要尽量改正
+java.util.HashMap 
+基于哈希表实现了Map接口
+提供了所有可选的map操作，允许null的值和null的键
+hashmap除了不是同步的，允许null以外和HashTable是等价的
+该类不保证map的顺序，也就是说hashmap是无序的
+该实现提供了常量的时间性能的基本操作 get和put
+有两个参数影响它的性能 初始化容量和加载因子
+容量是指在哈希表中圆桶的数量
+初始化容量是指哈希表被创建时默认的容量
+加载因子是测量在它的容量自动增加的时候允许获取的最大数量
+当哈希表中的实体超过加载因子和当前容量产出的大小，哈希表会被重新计算哈希
+加载因子默认是0.75
+默认初始化容量1<<4 = 16
+最大容量 1<<30 相当大了
+
+static final int hash(Object key) {
+        int h;
+        return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+    }
+    
+该HashMap#hash()算法的讲解
+key的hash值高16位不变，低16位与高16位异或作为key最终的hash值
+异或的定义是，只要两个位不相同，就返回1，否则返回0
+
+这个与HashMap中table下标的计算有关
+因为table的长度都是2的幂，因此index仅与hash值的低n位有关，hash值的高位都被与操作置为0了
+与操作符的定义是 只要两个位都为1，才为1，否则都是0
+
+发生碰撞也可以用树形存储降低了冲突
+减少了系统的开销，也不会造成的因为高位没有参与下标的计算，从而引起的碰撞
+
+static final int MAXIMUM_CAPACITY = 1 << 30;
+    /**
+     * Returns a power of two size for the given target capacity.
+     */
+    static final int tableSizeFor(int cap) {
+        int n = cap - 1;
+        n |= n >>> 1;
+        n |= n >>> 2;
+        n |= n >>> 4;
+        n |= n >>> 8;
+        n |= n >>> 16;
+        return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
+    }
+
+这个方法用于找到大于等于initialCapacity的最小的2的幂，如果初始化容量就是2的幂，那么就返回这个数
+
+final Node<K,V> getNode(int hash, Object key) {
+        Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
+        if ((tab = table) != null && (n = tab.length) > 0 &&
+            (first = tab[(n - 1) & hash]) != null) {
+            if (first.hash == hash && // always check first node
+                ((k = first.key) == key || (key != null && key.equals(k))))
+                return first;
+            if ((e = first.next) != null) {
+                if (first instanceof TreeNode)
+                    return ((TreeNode<K,V>)first).getTreeNode(hash, key);
+                do {
+                    if (e.hash == hash &&
+                        ((k = e.key) == key || (key != null && key.equals(k))))
+                        return e;
+                } while ((e = e.next) != null);
+            }
+        }
+        return null;
+    }
+    
+首先判断table不能为空，table的长度大于0，然后根据(n-1)&hash计算出来的hash值，得到该索引处的第一个元素
+如果第一个元素的hash值相同 并且 指定的key和第一个元素的key相等，相等的条件是 k == key || k.equals(key)
+如果在第一个元素就hash值相等 key也相同，那么就直接返回第一个元素即可
+
+如果第一个元素没有找到，就接着查找下该索引处的下一个元素，也叫结点，如果该结点是树结点，表明存储结构是红黑树，那么就使用红黑树的方法返回元素
+如果该结点是链表结构，那么就同判断第一个元素一样
+ e.hash = hash && ((k = e.key) == key||(key!= null && k.equals(key))
+ 
+hashMap的数据结构 数组 table + 链表（bucket） + 红黑树
+桶中的结构可能是链表，也可能是红黑树
+
+putVal方法的解析
+    如果map内部的保存实体的数组为空 == null 或者 tab.length ==0
+    那么就重新设置该数组的大小
+    
+    
+
+final Node<K,V>[] resize()方法
+oldTab = table
+oldCap = 0或者旧数组的长度
+oldThr = threshold 等于当前阈值
+newCap 新的初始化容量
+newThr = 0 新的阈值设置为0
+如果老的容量大于0，如果老的容量大于最大容量，那么就设置阈值为int类型的最大值，然后返回老的数组
+如果老的容量小于
+
+初始化或2倍表的大小，如果表格为空，根据阈值保持的初始化容量进行分配
+因为我们使用的是2的幂扩展，元素从每个bin必须待在同样的索引或者转移到一个2倍的偏移量到新的表
+
+这一大坨就是为了初始化两个参数，值得吗
+newCap 新的初始化容量
+newThr 新的阈值
+
+当哈希表中的条目超过了加载因子与当前容量的乘积时，这要对该哈希表进行rehash操作，即重建内部数据结构，从而哈希表将具有大约两倍的桶数
+
+java7的hashmap的缺点
+7中按照index索引存储的，遇到hash冲突的时候采用拉链发解决冲突，将冲突的key和value插入到链表list中，
+如果key值都冲突，hashmap会退化成一个链表，get的复杂度会变成O(n)
+在Java8中为了优化该最坏情况下的性能，采用了平衡树来存放这些hash冲突的键值对，性能由此可以提升至O(logn)。
+
+存储结构 常用方法 扩容 和安全性
+Node<K,V>[] tab 数组
+每个索引处 是一个链表，如果链表长度太长，默认超过8，链表就会转换成红黑树
+
+根据key获取哈希桶数组索引位置
+put方法的详细执行
+扩容过程
+
+
+fail-fast 机制
+快速失败是java集合的一种错误检测机制，当多个线程对集合进行结构上的改变的操作时，有可能会产生快速失败机制，是有可能，而不是一定
+
+
+
+
+
+
+
 
