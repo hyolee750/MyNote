@@ -1,0 +1,124 @@
+第一步，搭建开发环境
+1.添加jersey依赖
+<dependency>
+      <groupId>org.glassfish.jersey.core</groupId>
+      <artifactId>jersey-server</artifactId>
+      <version>2.23.2</version>
+    </dependency>
+ 
+    <dependency>
+      <groupId>org.glassfish.jersey.core</groupId>
+      <artifactId>jersey-client</artifactId>
+      <version>2.23.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish.jersey.containers</groupId>
+      <artifactId>jersey-container-servlet</artifactId>
+      <version>2.23.2</version>
+    </dependency>
+只需要这三个依赖即可，不需要servlet组件，不过为了更好的观看源代码，还是把servlet组件加上吧
+2.编写REST Service和应用启动类
+@Path("/hello")
+public class HelloWorldService {
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String getMessage() {
+        return "Hello World";
+    }
+}
+@ApplicationPath("/")
+public class MyApplication extends Application {
+    @Override
+    public Set<Class<?>> getClasses() {
+        final Set<Class<?>> classes = new HashSet<>();
+        classes.add(HelloWorldService.class);
+        return classes;
+    }
+}
+3.在web.xml中配置jersey文件
+<servlet>
+    <servlet-name>Jersey</servlet-name>
+    <servlet-class>org.glassfish.jersey.servlet.ServletContainer</servlet-class>
+    <init-param>
+      <param-name>javax.ws.rs.Application</param-name>
+      <param-value>com.hyolee.rest.ch01.MyApplication</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>Jersey</servlet-name>
+    <url-pattern>/*</url-pattern>
+  </servlet-mapping>
+  
+第二步：具体内容的学习
+JAX-RS的核心概念 资源和子资源
+根资源类 至少有一个@Path注解的类，或者至少有一个注解了@GET，@PUT，@DELETE，@POST的方法
+
+@Path
+该注解的值是一个相对路径的URL，
+URI路径模板是URIs在uri语法中嵌入变量，变量使用{}包裹
+@PathParam 可以获取模板变量
+可以使用具体的正则表达式来代替默认的正则表达式"[^/]+"，如@Path("users/{username:[a-zA-Z]}")
+如果一个用户的名称不能匹配该正则表达式，将会响应404
+
+HTTP方法
+@GET,@PUT,@POST,@DELETE等，是资源方法代号注解
+
+@Produces
+用来定义一个生产的并发送到客户端的资源的MIME类型
+该注解可以用于类级别和方法级别
+在同一个@Produces注解中，可以声明多个媒体类型，如@Produces({"application/xml", "application/json"})
+
+MediaType 媒体类型的类
+
+@Consumes
+定义服务端可以消费的媒体类型
+如果返回值为void，表示没有表述被返回，响应的状态码为204，表示no content
+同@Produces一样，可以注解在类级别和方法级别上，同时也支持声明多个媒体类型
+
+参数化注解
+@PathParam 路径参数
+@QueryParam 查询参数 
+    如果一个查询参数存在在请求URI中的查询部分，该参数将会被解析成32位有符号的int类型，并且赋值给step方法参数，如果该参数不存在，方法参数会被赋值默认值,使用@DefaultValue注解，如果该参数不能被解析成int类型，那么404 not found状态码将会被返回
+自定义java类型 为消费请求参数
+一般来说，java方法参数的类型可能是：
+1.是一个基本类型
+2.有一个构造器接收单个String参数
+3.有一个静态方法叫valueOf或者fromString接收单个String参数，例如Integer.valueOf(String)或者java.util.UUID.fromString(String)
+4.有一个已经注册的javax.ws.rs.ext.ParamConverterProvider的实现，返回javax.ws.rs.ext.ParamConverter实例有fromString转换类型的能力
+5.或者是List<T>, Set<T> or SortedSet<T> 满足第2条或第3条的
+如果一个参数可能包含超过一个值的时候，可以使用第5条的集合类型来取得所有的值
+如果不使用@DefaultValue注解，集合类型的是空集合，对象是null，基本类型的话就是默认初始化类型
+@MatrixParam 矩阵参数
+@HeaderParam 消息头参数
+@CookieParam cookie参数
+@FormParam 表单参数
+如果有必要取得一个键值对的map，可以使用@Context UriInfo
+
+UriInfo 这个类也要看一下
+取得消息头参数 @Context HttpHeaders
+因为表单参数是消息体的一部分，所以也可以这样做
+@POST
+@Consumes("application/x-www-form-urlencoded")
+public void post(MultivaluedMap<String, String> formParams) {
+    // Store the message
+}
+@BeanParam 允许注入以上描述的参数到一个单个bean中，可以包含任意字段和相应的*Param注解
+
+根资源类的生命周期
+默认情况下，每次请求都会创建一个新的根资源类
+
+JAX-RS 应用模型
+Application
+Jsersey自己的实现ResourceConfig
+自动发现的功能
+    json绑定
+自动发现功能的机制默认是启用的
+使用特殊的属性可以禁用该功能
+CommonProperties.FEATURE_AUTO_DISCOVERY_DISABLE 禁用自动发现
+CommonProperties.JSON_PROCESSING_FEATURE_DISABLE 禁用json处理自动配置
+CommonProperties.MOXY_JSON_FEATURE_DISABLE 禁用moxy json功能
+
+配置类路径扫描
+
+
