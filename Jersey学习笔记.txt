@@ -1,3 +1,192 @@
+Jersey说明文档翻译
+前言
+1.开始
+	1.1 从Maven架构创建新的工程
+	1.2 探索新创建的项目
+	1.3 运行项目
+	1.4 创建一个JavaEE Web应用
+	1.5 创建一个可以部署到Heroku的Web应用
+		1.5.1 部署到Heroku
+	1.6 探索其他Jersey示例
+2. 模块和依赖
+	2.1 Java SE兼容性
+	2.2 介绍Jersey的依赖
+	2.3 常用的Jersey使用案例
+		2.3.1 Glassfish平台的Servlet应用
+		2.3.2 基于Servlet的服务器端应用
+		2.3.3 基于JDK的客户端应用
+		2.3.4 基于支持的容器服务端应用
+	2.4 模块列表
+3. JAX-RS应用，资源和子资源
+	3.1 根资源类
+		3.1.1 @Path
+		3.1.2 @GET,@PUT,@POST,@DELETE...(HTTP方法)
+		3.1.3 @Produces
+		3.1.4 @Consumes
+	3.2 参数注解 (@*Param)
+	3.3 子资源
+	3.4 根资源类的生命周期
+	3.5 注入规则
+	3.6 使用@Context注解
+	3.7 编程资源模型
+4. 应用部署和运行时环境
+	4.1 介绍
+	4.2 JAX-RS应用模型
+	4.3 自动发现特性
+		4.3.1 配置自动发现特性机制
+	4.4 配置类路径扫描
+	4.5 Java SE部署环境
+		4.5.1 HTTP 服务端
+	4.6 创建可编程的JAX-RS端点
+	4.7 基于Servlet的部署
+		4.7.1 Servlet 2.X 容器
+		4.7.2 Servlet 3.X 容器
+		4.7.3 Jersey Servlet 容器模块
+	4.8 Java EE 平台
+		4.8.1 可管理的Bean
+		4.8.2 上下文和依赖注入
+		4.8.3 EJB
+		4.8.4 Java EE 服务器
+	4.9 OSGI
+		4.9.1 在Glassfish启用OSGI命令行
+		4.9.2 WAB示例
+		4.9.3 HTTP 服务 示例
+	4.10 其他环境
+		4.10.1 Oracle Java 云服务
+5. 客户端API
+	5.1 统一接口约束
+	5.2 易于使用的可重用JAX-RS构架
+	5.3 客户端API概述
+		5.3.1 开始客户端API
+		5.3.2 创建和配置客户端实例
+		5.3.3 链接web资源
+		5.3.4 通过WebTarget定义资源
+		5.3.5 调用HTTP请求
+		5.3.6 示例总结
+	5.4 Java实例和表述类型
+		5.4.1 增加新的表述支持
+	5.5 客户端传输连接器
+	5.6 使用客户端请求响应过滤器
+	5.7 关闭连接
+	5.8 注入客户端提供器
+	5.9 客户端安全
+		5.1 HTTP认证支持
+6. 可响应的Jersey客户端API
+	6.1 可响应客户端扩展的动机
+	6.2 使用和扩展模块
+	6.3 支持可响应的库
+		6.3.1 Rxjava 
+		6.3.2 Java 8
+		6.3.3 Guava
+		6.4.4 JSR-116e
+7. 表述和响应
+	7.1 表述和java类型
+	7.2 构建响应
+	7.3 WebApplicationException和转换异常到响应
+	7.4 额外的GETs和返回304响应
+8. JAX-RS实体提供器
+	8.1 介绍
+	8.2 如何写自定义实体提供器
+		8.2.1 MessageBodyWriter
+		8.2.2 MessageBodyReader
+	8.3 实体提供器选择
+	8.4 Jersey MessageBodyWorkers API
+	8.5 MORFDJersey 实体提供器
+9. 常用媒体类型表述的支持
+	9.1 JSON
+		9.1.1 JSON支持的方法
+		9.1.2 MOXy
+		9.1.3 用于JSON处理的Java API
+		9.1.4 Jackson 1.x和2.x
+		9.1.5 Jettison
+		9.1.6 @JSONP JSON跨域支持
+	9.2 XML
+		9.2.1 低水平XML支持
+		9.2.2 开始JAXB
+		9.2.3 POJOs
+		9.2.4 使用自定义JAXBContext
+		9.2.5 MOXy
+	9.3 多部件
+		9.3.1 概述
+		9.3.2 客户端
+		9.3.3 服务端
+10. 过滤器和拦截器
+	10.1 介绍
+	10.2 过滤器
+		10.2.1 服务端过滤器
+		10.2.2 客户端过滤器
+	10.3 拦截器
+	10.4 过滤器和拦截器的执行顺序
+	10.5 命名绑定
+	10.6 动态绑定
+	10.7 优先级
+11. 异步服务和客户端
+	11.1 异步服务端API
+		11.1.1 异步服务端回调
+		11.1.2 分块输出
+	11.2 客户端API
+		11.2.1 异步客户端回调
+		11.2.2 分块输出
+12.URIs和Links
+	12.1 构建URIs
+	12.2 解析和相对化
+	12.3 Link
+13. 可声明的超链接
+	13.1 依赖
+	13.2 表述性链接
+	13.3 绑定模板参数
+	13.4 额外的链接注入
+	13.5 链接注入列表
+	13.6 链接头
+	13.7 阻止递归注入
+	13.8 配置和注册
+14. 构建资源的可编程API
+	14.1 介绍
+	14.2 可编程的Hello World示例
+		14.2.1 可编程资源的部署
+	14.3 额外的示例
+	14.4 模型处理器
+15. 服务端发送事件支持
+	15.1 什么是服务端发送事件
+	15.2 什么时候使用服务端发送事件
+	15.3 Jersey服务端事件API
+	15.4 使用JAX-RS资源实现SSE支持
+		15.4.1 简单的SSE资源方法
+		15.4.2 使用Jersey SSE广播
+	15.5 使用Jersey客户端消费SSE事件
+		15.5.1 使用EventInput读取SSE事件
+		15.5.2 使用EventSource处理异步SSE
+16. 安全
+	16.1 服务端安全
+		16.1.1 SecurityContext
+		16.1.2 认证-安全资源
+	16.2 客户端安全
+	16.3 OAuth 支持
+		16.3.1 OAuth 1
+		16.3.2 OAuth 2支持
+17. WADL支持
+	17.1 WADL介绍
+	17.2 配置
+	17.3 扩展WADL支持
+18.实体校验支持
+	18.1 实体校验依赖
+	18.2 在jersey中启用实体校验
+	18.3 配置实体校验支持
+	18.4 校验JAX-RS资源和方法
+		18.4.1 约束注解
+		18.4.2 注解约束和校验器
+		18.4.3 实体校验
+		18.4.4 注解继承
+	18.5 @ValidateOnExecution
+	18.6 注入
+	18.7 错误报告
+		18.7.1 ValidationError
+19. 实体数据过滤
+	
+	
+
+
+
 第一步，搭建开发环境
 1.添加jersey依赖
 <dependency>
@@ -122,3 +311,289 @@ CommonProperties.MOXY_JSON_FEATURE_DISABLE 禁用moxy json功能
 配置类路径扫描
 
 
+All media types (*/*)
+byte[]
+java.lang.String
+java.io.Reader (inbound only)
+java.io.File
+javax.activation.DataSource
+javax.ws.rs.core.StreamingOutput (outbound only)
+XML media types (text/xml, application/xml and application/...+xml)
+javax.xml.transform.Source
+javax.xml.bind.JAXBElement
+Application supplied JAXB classes (types annotated with @XmlRootElement or@XmlType)
+Form content (application/x-www-form-urlencoded)
+MultivaluedMap<String,String>
+Plain text (text/plain)
+java.lang.Boolean
+java.lang.Character
+java.lang.Number
+
+Response
+Response.ResponseBuilder
+
+WebApplicationException
+
+异常处理
+ ExceptionMapper<E extends Throwable>
+ 
+ @Provider表明jax-rs运行时的时候加载该类，可以被添加到application实例中，来处理相应的功能
+ 比如异常处理器，实体转换器等等
+ 
+JAX-RS实体提供器
+处理入站实体表述到java反序列化 MessageBodyReader<T>
+处理输出MessageBodyWriter<T>
+
+
+
+JAX-RS API学习笔记
+
+javax.ws.rs.core.MultivaluedMap 接口
+实现了Map接口，是键值对的集合
+每一个键可以有零个或多个值
+void putSingle(K key, V value); 设置单值，已经存在的值就会被替换
+void add(K key, V value); 添加值到指定key的值列表
+[key,muti-value] 可以使用map实现 Map<K,List<V>>
+
+部分方法的实现原理
+putSingle 
+    根据key获取存储多个值的list，不管有没有值，都先把list清空
+    如果list不等于空，则把value添加进去，如果list等于空，则什么也不做
+    putSingle的作用就是添加一个值，如果有已存在的值，就会替换它
+add 
+    根据key获取存储多个值的list，如果list存在，就把value添加进去，如果不存在，什么也不做
+addAll 同理，只是遍历把集合中的每个元素都添加进来
+getFirst 
+    根据key获取存储多个值的list，如果list不等于空，则取集合的第一个元素，如果list等于空，则返回null
+addFirst 
+    在指定key的多值集合的第一个位置添加value
+getValues
+    根据key获取list，如果存在，直接返回，如果不存在，创建一个空的linkedlist空集合返回
+
+（重点类啊） Application
+javax.ws.rs.core.Application 类
+定义了JAX-RS应用的组件，并且提供了额外的元数据，
+一个JAX-RS应用或实现，提供了该抽象类相应的子类
+一个Application引用的子类可能使用@Context注入资源类和提供者
+如果该类的子类方法或者构造器抛出了一个运行时异常，应用的部署都应该因为失败而废弃
+只有三个方法
+public Set<Class<?>> getClasses() {
+        return Collections.emptySet();
+    }
+获取根资源类，提供者类和Feature类的集合
+资源类的默认生命周期是每次请求创建
+提供者类的默认生命周期是单例
+
+public Set<Object> getSingletons() {
+        return Collections.emptySet();
+    }
+获取根资源类，提供者类和feature类的实例的集合
+返回的实例的字段和属性在运行被使用时使用它们声明的@Context注入
+
+public Map<String, Object> getProperties() {
+        return Collections.emptyMap();
+    }
+获取自定义应用级别的属性的集合
+
+javax.ws.rs.core.CacheControl 类
+HTTP Cache-Control响应头的值的抽象
+
+javax.ws.rs.core.Configurable 接口
+代表一个客户端或者服务端配置上下文
+可配置的上下文可以用来定义JAX-RS组件和额外的元数据
+该上下文的修改可以通过设置属性或者注册自定义JAX-RS组件，像提供者和功能
+设置属性
+使用property方法设置新的属性，或者更新已经存在属性的值
+设置属性为空来删除一个已经存在的属性
+
+注册JAX-RS组件
+最简单的形式是使用register方法
+例如
+config.register(HtmlDocumentReader.class)
+config.register(new HtmlDocumentWriter(writeConfig))
+组件 可能是过滤器，拦截器或者实体提供器
+一般来说，每个JAX-RS组件类最多只能有基于类或者基于实例的注册
+实现类必须拒绝任何试图配置已经存在注册 新的注册
+方法
+property 设置新的配置属性，如果已经设置过了，该属性已存在的值将会被更新，设置为null，会删除该属性
+register 注册自定义JAX-RS组件
+
+@Context
+该注解被用来注入信息到一个类的字段，bean属性，或者方法参数
+
+javax.ws.rs.core.Cookie 类
+代表HTTP cookie的值，由请求发送过来的
+name cookie的名称
+value cookie的值
+version cookie的版本
+path cookie作用的路径
+domain cookie作用的域名
+
+使用构造器创建一个新的cookie
+使用valueof方法创建一个新的实例
+
+javax.ws.rs.core.EntityTag 类
+一个HTTP Entity Tag值的抽象，被用来作为Etag响应头的值
+
+javax.ws.rs.core.Feature 接口
+功能扩展合同？
+典型的封装了一个概念或能力，可以调用多个提供者或属性的配置
+feature是一个jax-rs配置元提供者的特殊类型
+
+configure 方法
+一个回调方法当该功能被启用时调用
+功能的责任是恰当的更新提供的运行时配置上下文，如果更新成功返回true，否则返回false
+
+javax.ws.rs.core.Form 类
+代表使用application/x-www-form-urlencoded 内容类型编码后的html表单请求实体的数据
+
+public Form(){}
+创建一个新的表单数据实体
+方法
+param(string name,string value)
+添加一个新值到特定的表单参数
+asMap() 
+返回代表表单的多值map对象
+
+javax.ws.rs.core.GenericEntity 类
+代表一个泛型的信息实体
+List<String> list = new ArrayList<String>();
+   GenericEntity<List<String>> entity = new GenericEntity<List<String>>(list) {};
+   Response response = Response.ok(entity).build();
+
+Method method = ...;
+   GenericEntity<Object> entity = new GenericEntity<Object>(
+      method.invoke(...), method.getGenericReturnType());
+   Response response = Response.ok(entity).build();
+   
+有点像gson的typetoken
+
+javax.ws.rs.core.HttpHeaders 接口
+一个可注入的接口提供了访问HTTP消息头信息的功能
+public List<String> getRequestHeader(String name);
+获取HTTP请求头的值
+public MultivaluedMap<String, String> getRequestHeaders();
+获取所有请求头的值
+public List<MediaType> getAcceptableMediaTypes();
+获取响应可接收的媒体类型列表
+public List<Locale> getAcceptableLanguages();
+获取响应可接受的语言列表
+
+javax.ws.rs.core.Link 抽象类
+代表超媒体链接，
+一个超媒体类型包括额外的参数，除了基本的uri
+像rel，type
+toString 和valueOf被用来序列化和反序列化一个链接到一个链接消息头
+javax.ws.rs.core.Link.Builder 接口
+使用该接口来构建超媒体类型链接
+valueOf
+fromUri
+fromUriBuilder
+fromLink
+fromPath
+fromResource
+fromMethod
+这几个方法都会返回一个builder对象
+javax.ws.rs.core.MediaType 类
+一个媒体类型的抽象，实例是不可变的
+最常用的方法就是使用其定义的常量
+
+javax.ws.rs.core.NewCookie extends cookie
+用来创建一个新的HTTP cookie
+
+javax.ws.rs.core.Response 抽象类
+
+使用ResponseBuilder来创建Response对象
+status 设置状态码
+ok 设置200
+serverError 设置500
+created 设置201
+accepted 202
+
+javax.ws.rs.core.UriBuilder 抽象类
+用来创建uri对象
+
+javax.ws.rs.core.UriInfo 接口
+包含uri的各种信息
+
+简单总结一下
+
+异常结构
+webapplicationexception
+-servererrorexception
+--内部服务错误异常
+--服务不可用异常
+-redirectionexception
+-clienterrorexception
+--未授权异常
+--不允许异常
+--不支持异常
+--找不到异常
+--坏请求异常
+--不接受异常
+--被禁止异常
+
+HTTPmethod注解
+@GET @POST @DELETE @PUT @HEAD @OPTIONS
+
+参数注解
+@HeaderParam 
+@CookieParam
+@MatrixParam
+@QueryParam
+@PathParam
+@FormParam
+@BeanParam
+@defaultValue
+@Context
+
+路径注解
+@applicationPath
+@Path
+
+媒体类型注解
+@Produces
+@Consumes
+
+编写客户端需要掌握的类
+Client
+ClientBuilder
+CilentRequestFIlter
+ClientResponseFIlter
+Entity
+WebTarget
+Invocation
+
+服务端需要掌握的类
+ContainerRequestFIlter
+ContainerResponseFilter
+
+核心类
+Application
+Form
+Link
+Response
+UriBuilder
+UriInfo
+
+扩展类
+实体转换器
+MessageBodyWriter
+MessageBodyReader
+
+拦截器
+ReaderInterceptor
+WriterInterceptor
+
+异常处理
+ExceptionMapper
+
+今天和明天需要完成的工作
+1.搭建jersey和spring的整合
+2.实现基本的用户增删改查功能，同时将用户数据保存到数据库
+3.实现异常处理
+4.实现自定义输出格式
+5.实现HATEOS 
+今天的话还是争取把这个说明文档看完
+
+加油
