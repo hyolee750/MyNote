@@ -1,0 +1,42 @@
+1.Spring 基础配置
+四大原则
+    1.使用POJO进行轻量级和最小侵入式开发
+    2.通过依赖注入和基于接口编程实现松耦合
+    3.通过AOP和默认习惯进行声明式编程
+    4.使用AOP模板减少模式化代码
+声明Bean的注解
+    @Component 没有明确的角色
+    @Service 在业务逻辑层使用
+    @Repository 在数据访问层使用
+    @Controller 在展现层使用
+注入Bean的注解
+    @Autowired 
+    @Inject
+    @Resource
+
+今年到明年上半年，需要掌握的知识和技术
+1.java虚拟机，内存模型
+2.java集合框架，源码至少要看一遍，尤其是其中的List，ArrayList和LinkedList，Set，HashSet，Map HashMap，这些源码至少要理解，并且其中的核心方法的实现原理也要掌握
+3.java多线程，并发，这部分也要重点掌握
+4.java IO流。包括IO和NIO
+
+MYSQL
+不要求掌握的多厉害，至少要做到主从复制，分库分表，读写分离，同时也要知道sql的优化
+
+JavaWeb
+要求不高，把那个英文书看两遍，理解其中的每个知识点
+
+框架
+Spring 源码至少要阅读一遍，了解其中的实现原理
+mybatis 不仅要会用，要掌握其实现思想和用到的设计模式和技术
+Hibernate，虽然不怎么用了，但是还是了解一下
+
+大数据
+分布式
+
+Redis
+mongodb
+
+netty
+
+Linux

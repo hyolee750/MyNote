@@ -1,0 +1,17 @@
+1.创建一个新的mysql 用户
+CREATE USER 'USERNAME'@'localhost' IDENTIFIED BY 'password'
+2.给sql用户创建和操作表格的权限
+GRANT ALL PRIVILEGES ON *.* TO 'USERNAME'@'localhost' WITH GRANT OPTION
+3.创建数据库
+CREATE DATABASE TENNIS
+4.选择当前数据库
+USE TENNIS
+或者在登陆的时候指定一个数据库作为当前数据库
+mysql -u booksql -p TENNIS
+5.创建表
+CREATE TABLE PLAYERS(
+    PLAYERNO INTEGER NOT NULL;
+    ......
+    );
+6.用数据填充表
+INSERT INTO PLAYERS(col1,col2,col3....)VALUES(val1,val2,val3,...)
