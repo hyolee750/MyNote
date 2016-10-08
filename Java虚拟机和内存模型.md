@@ -2,7 +2,7 @@
 
 我们看一下Java虚拟机运行时数据区域
 
-![Java虚拟机运行时数据区域](../images/neicunmoxing.png)
+![Java虚拟机运行时数据区域](https://gavinzhang1.gitbooks.io/java-jvm-us/content/201208212311249241.png)
 
 ### 程序计数器
 
