@@ -10,3 +10,5 @@ pitfalls n 意想不到的危险或困难
 scratch v 抓 刮 划
 frankly adv 坦白地，直率地，真诚地
 clutter n 凌乱的东西
+
+vendor n 供应商 商贩 
