@@ -203,3 +203,118 @@ http {
   主要影响Nginx服务器于用户的网络连接，常用的设置包括是否开启对多worker process下的网络连接进行序列化，是否允许同时接收多个网络连接，选取哪种事件驱动模型处理连接请求，每个worker process可以同时支持最大的连接数
 
   这一部分的指令对Nginx服务器的性能影响较大
+
+3. http块
+
+  代理，缓存和日志定义等绝大多数功能和第三方模块的配置都可以放在这个模块中
+
+  配置文件引入，Mime类型定义，日志自定义，是否使用sendfile传输文件，连接超时时间，单连接请求数上限
+
+4. server块
+
+  每一个http块都可以包含多个server块，而每个server块就相当于一台虚拟主机
+  它内部可有多台主机联合提供服务
+
+5. location块
+
+  location其实是server块的一个指令，基于Nginx服务器接受到的请求字符串例如`server_name/uri-string`
+  对除虚拟主机名称之外的字符串进行匹配
+
+  对特定请求进行处理，地址定向，数据缓存和应答控制等功能
+
+### 全局配置
+user
+worker_processses
+pid
+error_log
+
+#### 配置运行Nginx服务器用户(组)
+指令user,其语法格式为： user username [group]
+
+username 指定可以运行Nginx服务器的用户
+group 可选项，指定可以运行Nginx服务器的用户组
+
+只有被设置的用户或者用户组才有权限启动Nginx进程，如果是其他用户尝试启动，将会报错
+
+希望所有用户都可以启动Nginx进程，有两种办法，一，将此指令注释掉，二，将用户设置为nobody
+这也是user指令的默认配置，user指令只能在全局块中配置
+
+#### 配置允许生成的worker process数
+指令 worker_processses number | auto;
+
+number 指定Nginx进程最多可以产生worker process数
+
+auto 设置此值，Nginx进程将自动检测
+
+#### 配置Nginx进程PID存放路径
+Nginx进程作为系统的守护进程运行，我们需要在某文件中保存当前运行程序的主进程号
+
+指令 `pid file` 。 例如 pid logs/nginx.pid;
+
+#### 配置错误日志的存放路径
+指令`error_log logs/error.log error;`
+
+#### 配置文件的引入
+指令 `include file；`
+
+### events块 配置
+
+#### 设置网络连接的序列化
+指令 `accept_mutex on | off` 当其设置为开启的时候，将会对多个Nginx进程接收连接进行序列化，防止多个进程对连接的争抢
+
+#### 设置是否允许同时接收多个网络连接
+`multi_accept on | off` 此指令默认为关闭状态，即每个worker process一次只能接收一个新到达的网络连接
+
+#### 事件驱动模型的选择
+指令 `use method；` 其中method可以选择select，poll，kqueue，epoll，rtsig，/dev/poll以及eventport
+
+#### 配置最大连接数
+`worker_connections number;`
+
+#### 定义MIME类型
+
+
+### Nginx服务器基础配置实例
+nginx.conf 文件的完整内容
+```
+### 全局块开始 ###
+user nobody nobody;       # 配置允许运行Nginx服务器的用户和用户组
+worker_processes 3;       # 配置允许Nginx进程生成的worker process数
+error_log logs/error.log; # 配置Nginx服务器运行对错误日志的存放路径
+pid  nginx.pid;           # 配置Nginx服务器运行时pid文件的存放路径和名称
+### 全局块结束 ###
+
+### events块开始 ###
+events
+{
+  use epoll;              # 配置事件驱动模型
+  worker_connections 1024;# 配置最大连接数
+}
+### events块结束 ###
+### http块开始 ###
+http {
+  inclue mime.types;
+  default_type application/octet-stream;
+  sendfile on;
+  keepalive_timeout 65;
+  log_format access_log '$remote_addr-[$time_local]-"$request"-"$http_user_agent"';
+  ### server块开始　###
+  ## 配置虚拟主机myServer1
+  server{
+    listen 8081;
+    server_name myServer1;
+    access_log /myWeb/server1/log/access.log;
+    error_page 404 /404.html;
+    location /server1/location1 {
+      root /myWeb;
+      index index.svr1-loc1.html;
+    }
+
+    location /server1/location2 {
+      root /myWeb;
+      index index.svr1-loc2.html;
+    }
+  }
+}
+
+```

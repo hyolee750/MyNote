@@ -1,12 +1,12 @@
 麦汇的阿里云服务器信息
 
-IP:118.178.224.161    
+IP:118.178.224.161
 user:root
 password:Mavin123456
 
 mysql地址
 url: rm-bp17n2069o281xvz3.mysql.rds.aliyuncs.com
-username:mavin  
+username:mavin
 password:Mavin123456
 
 张晓明的邮箱
