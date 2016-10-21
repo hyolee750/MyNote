@@ -366,3 +366,280 @@ MyBatis使用前缀`mybatis`来设置它的属性
 1. 在application.properties文件中配置数据源，指定数据库，用户名，密码，驱动类
 2. 在mapper接口上添加`@Mapper`注解
 3. 在`resources`目录中创建与mapper接口一致的目录，保存mapper.xml文件
+
+# Spring Boot 说明文档学习
+
+希望可以通过这次文档的学习，加深对spring和spring boot的理解，同时也希望自己可以掌握使用spring boot开发的细节，以及解决可能出现问题
+加油，486
+
+Spring Boot可以更容易的创建基于spring的独立的，产品级别的应用
+
+系统需求
+1. Java7 和Spring 4.3.3版本以上
+2. Tomcat 8以上
+
+安装Spring Boot
+
+### `@RestController`和`@RequestMapping` 注解的学习
+
+`@RestController` 铅版注解，它提供了暗示让人们读这个代码，对spring来说，该类扮演了一个具体的角色
+去看一下api文档怎么说的吧
+
+一个便捷的注解本身上使用了注解`@RequestMapping`和`@ResponseBody`
+该注解携带的类型被看做controller对待，支持MVC默认的是RequestMappingHandlerMapping和RequestMappingHandlerAdapter，但是不支持DefaultAnnotationHandlerMapping和AnnotationMethodHandlerAdapter因为它们已经过时了
+
+`RequestMapping` 映射web请求到具体的处理器和处理器方法
+
+使用该注解的方法可以接收的方法参数：
+
+`javax.servlet.ServletRequest`，
+
+`javax.servlet.http.HttpServletRequest`，
+
+`javax.servlet.http.HttpSession`，
+
+`org.springframework.web.context.request.WebRequest`，
+
+`org.springframework.web.context.request.NativeWebRequest`，
+
+`java.util.Locale`，
+
+`java.io.InputStream`，
+
+`java.io.Reader`，
+
+`java.io.OutputStream`，
+
+`java.io.Writer`，
+
+`java.util.Map`
+
+Spring中常用的注解
+
+`@EnableAutoConfiguration` 启用自动配置注解，该注解告诉spring boot 去猜你想要怎么配置spring
+
+改变java的版本 设置java.version属性
+```
+<properties>
+    <java.version>1.8</java.version>
+</properties>
+```
+
+使用Spring Boot Maven 插件
+```
+<plugin>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-maven-plugin</artifactId>
+  </plugin>
+```
+
+导入额外的配置类使用`@Import` 注解
+
+导入xml配置 使用`@ImportResource` 注解
+
+启用自动配置`@EnableAutoConfiguration`和 `@SpringBootApplication`添加到你的自定义的标有`@Configuration`注解的类
+
+禁用具体的自动配置`@EnableAutoConfiguration(exclude={DataSourceAutoConfiguration.class})`
+使用exclude进行排除
+
+Spring Beans和依赖注入
+
+使用`@Component, @Service, @Repository, @Controller`的注解会自动Spring的Beans被注册
+
+`@SpringBootApplication` 注解 等价于三个注解`@Configuration, @EnableAutoConfiguration and @ComponentScan`
+
+hot swaping 热插拔
+
+`spring-boot-devtools` 模块支持该功能
+
+默认属性
+  ```
+    properties.put("spring.thymeleaf.cache", "false");
+		properties.put("spring.freemarker.cache", "false");
+		properties.put("spring.groovy.template.cache", "false");
+		properties.put("spring.velocity.cache", "false");
+		properties.put("spring.mustache.cache", "false");
+		properties.put("server.session.persistent", "true");
+		properties.put("spring.h2.console.enabled", "true");
+		properties.put("spring.resources.cache-period", "0");
+		properties.put("spring.template.provider.cache", "false");
+		properties.put("spring.mvc.log-resolved-exception", "true");
+  ```
+
+自动重启 当类路径下的文件发生改变时应用会自动重启，注意静态资源和视图模板的改变不需要重启，idea使用`Ctrl+F9`，会自动重启
+
+排除资源
+
+默认情况下/META-INF/maven, /META-INF/resources ,/resources ,/static ,/public or /templates中的资源不会触发重启
+
+通过`spring.devtools.restart.exclude=static/**,public/**` 排除自己想要排除的资源
+
+使用`spring.devtools.restart.additional-paths`监控不在类路径下的文件
+
+禁用重启
+
+`spring.devtools.restart.enabled` = false
+
+使用触发文件
+
+spring.devtools.restart.trigger-file = file
+
+`SpringApplication` 提供了一种便捷的方式启动spring应用
+
+自定义banner
+
+自定义SpringApplication
+
+使用流式构造者API
+`SpringApplicationBuilder`
+
+应用事件和监听器
+
+应用事件的发送顺序
+1. `ApplicationStartedEvent` 在运行开始，在除了任何监听器和初始化器的注册之外的任何处理之前
+2. `ApplicationEnvironmentPreparedEvent` 在上下文里使用环境时，但是在上下文创建之前
+3. `ApplicationPreparedEvent`
+4. `ApplicationReadyEvent`
+5. `ApplicationFailedEvent`
+
+web环境
+
+`SpringApplication` 会根据你的行为试图创建正确类型的`ApplicationContext`
+
+默认情况下`AnnotationConfigApplicationContext` 和`AnnotationConfigEmbeddedWebApplicationContext` 会被使用，取决于你开发的是web应用还是其他应用
+
+访问应用参数
+
+如果你需要访问被传递到`SpringApplication.run(…​)` 方法的应用的参数，你可以注入一个`org.springframework.boot.ApplicationArguments` Bean，这个接口提供访问原始`String[]` 参数和可解析的`option` 和`non-option`参数
+
+使用`ApplicationRunner`和`CommandLineRunner`接口
+
+需要在`SpringApplication`启动的时候运行一些具体的代码，你可以实现这两个接口
+
+CommandLineRunner 访问应用参数作为简单的字符串数组
+
+ApplicationRunner 使用ApplicationArguments访问应用参数
+
+应用退出
+
+每一个SpringApplication将会注册一个关闭回调，以确保ApplicationContext可以优雅的关闭
+
+配置随机值
+
+`RandomValuePropertySource` 有用的提供注入随机的值
+```
+my.secret=${random.value}
+my.number=${random.int}
+my.bignumber=${random.long}
+my.uuid=${random.uuid}
+my.number.less.than.ten=${random.int(10)}
+my.number.in.range=${random.int[1024,65536]}
+```
+访问命令行属性
+
+默认情况下，`SpringApplication`将会转换任何命令行参数到一个属性，然后将它添加到spring的`Environment`对象中
+
+如果你不想命令行属性被添加到`Environment`，你可以使用`SpringApplication.setAddCommandLineProperties(false)` 禁用该功能
+
+具体配置文件的属性
+
+`Environment`有一个默认的配置属性`default`，如果没有激活任何配置文件的话，会使用该默认属性
+
+属性中的占位符
+
+	app.name=MyApp
+	app.description=${app.name} is a Spring Boot application
+
+类型安全的配置属性
+
+	@ConfigurationProperties(prefix="connection")
+
+放松绑定
+
+spring Boot使用一些放松的规则绑定`Environment`属性到`	@ConfigurationProperties`，如果你不需要精确匹配环境的属性名和bean的属性名，常用的示例就是包括虚线分割的环境属性
+如：`context-path = contextPath`，`PORT=port`
+
+	Property		Note
+	person.firstName 	  		Standard camel case syntax.
+	person.first-name     		Dashed notation, recommended for use in .properties and .yml files.
+	person.first_name 			Underscore notation, alternative format for use in .properties and .yml files.
+	PERSON_FIRST_NAME            Upper case format. Recommended when using a system environment variables.
+	
+
+属性转换
+
+spring将会试图转换额外的应用属性到它绑定的bean的正确的类型，如果你需要自定义类型转换，你可以提供一个`ConversionService`或者自定义属性编辑器`CustomEditorConfigurer`或者自定义转换器`Converters`
+
+`@ConfigurationProperties`校验
+
+使用默认的jsr-303来校验额外的配置，你可以简单的添加`javax.validation` 约束注解到你的`@ConfigurationProperties`类
+
+为了校验嵌套属性的值，你必须使用`@Valid`注解相关联的字段，来触发它的校验
+
+@Profile
+
+提供了在不同环境中使用不同配置文件的功能，比如在开发环境中的数据库连接的是测试库，到生产环境中数据库连接线上的库
+
+使用`spring.profiles.active`属性启动配置属性
+
+日志
+
+日志格式
+
+	日期和时间 — 毫秒精度，更容易排序
+	日志级别 — ERROR, WARN, INFO, DEBUG 或 TRACE.
+	进程 ID.
+	 '---' 分隔符区别实际日志消息
+	线程名 — 以[]包裹
+	日志名 — 通常是全限定类名
+	日志消息
+	
+控制台输出
+
+使用`spring.output.ansi.enabled` 启动颜色代码输出
+
+文件输出
+
+使用`logging.file `或`logging.path`属性来配置日志文件的输出
+
+日志级别
+
+	logging.level.root=WARN
+	logging.level.org.springframework.web=DEBUG
+	logging.level.org.hibernate=ERROR
+	
+自定义日志配置
+
+Spring MVC自动配置 
+
+1. 包含`ContentNegotiatingViewResolver`和`BeanNameViewResolver`Beans
+2. 支持服务静态资源
+3. 自动注册转换器`Converter`，通用转换器`GenericConverter`，格式化`Formatter`
+4. 支持`HttpMessageConverters`
+5. 自动注册`MessageCodesResolver`
+6. 静态`index.html`支持
+7. 自定义`Favicon` 支持
+8. 自动使用`ConfigurableWebBindingInitializer`
+
+如果你想添加额外的mvc配置，比如拦截器，格式化器，视图控制器，你可以添加自己的`@Configuration`的`WebMvcConfigurerAdapter`类型的类，但是不使用`@EnableWebMvc` 
+
+对象可以被自动的转换成JSON或者XML，默认编码为UTF-8
+
+自定义JSON序列化和反序列化(这个功能可是非常的重要)
+
+`@JsonComponent` 该注解可以更容易的注册Spring Bean
+
+使用方法
+	1. 创建自己自定义的`JsonSerializer`和`JsonDeserializer`实现类
+	2. 在实现类上直接使用`@JsonComponent`即可自动注册序列化和反序列
+	
+所有在`ApplicationContext`的`@JsonComponent` Beans都会自动被Jackson注册
+
+上面这个方法太傻逼了，最简单的方法在`application.properties`属性文件中添加以下属性：
+`spring.jackson.date-format=yyyy-MM-dd`即可自动实现JSON的日期和字符串的转换
+
+spring boot的作用是减少不必要的配置，减少编码，将主要的核心放在业务代码上
+
+
+
+
