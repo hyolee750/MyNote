@@ -85,3 +85,7 @@ W字母只能用在日上，用来给指定日期最近的一个工作日，用�
 2002 年至 2005 年的每月最后一个周五的10：15 触发 0 15 10 ? * 6L 2002-2005
 每月的第三个周五的 10：15 触发 0 15 10 ? * 6#3
 
+2. 使用本地mysql出现The last packet sent successfully to the server was 0 milliseconds ago 问题
+解决办法:注意/etc/hosts文件中有没有配置对应的localhost
+127.0.0.1 localhost
+配置这一行解决了，网上的东西不可信的太多了啊
