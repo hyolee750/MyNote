@@ -1,3 +1,12 @@
+### Spring REST
+	1. 介绍REST
+		什么是REST？，理解资源，表述，HTTP方法，HTTP状态码
+	2. 错误处理
+		异常处理，参数校验
+	3. REST文档
+	4. 版本，分页和排序
+	5. 安全
+	6. HATEOAS
 ### SpEL spring表达式语言
 
 参考指南
