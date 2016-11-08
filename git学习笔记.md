@@ -18,4 +18,5 @@
         git config --global color.ui true
         
 
-    
+   隐藏的.git目录就是git的版本库，又叫仓库，.git版本库所在的目录为工作区
+   
