@@ -89,3 +89,7 @@ W字母只能用在日上，用来给指定日期最近的一个工作日，用�
 解决办法:注意/etc/hosts文件中有没有配置对应的localhost
 127.0.0.1 localhost
 配置这一行解决了，网上的东西不可信的太多了啊
+
+
+3. 在使用SpringMVC开发中如何从一个Controller的方法重定向到另一个Controller的方法呢？
+非常简单，使用 new ModelAndView(new RedirectView("/recommends",false));即可完成不同controller之间的跳转
