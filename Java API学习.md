@@ -130,3 +130,248 @@ Java NIO2的切入点 `java.nio.file.Path`，该类是NIO2的里程碑，每个�
     19. `Iterator<Path> iterator();`
     20. `int compareTo(Path other);`
     21. `boolean equals(Object other);`
+
+设计类的时候
+首先设计接口，然后设计抽象类，最后再设计实现类 ，接口可以有默认方法，抽象类可以实现部分方法，实现类实现具体的方法
+
+一个接口 `Path`
+
+一个获取接口帮助类 `Paths`
+
+一个抽象类 `AbstractPath`
+
+一个具体实现类 `UnixPath`
+
+定义一个path `Paths.get(String path);`
+
+定义一个绝对路径
+
+定义一个路径使用快捷路径如 ../../Path path.normalize
+使用filesystems.getdefault.getpath
+
+`Path Paths.get(URI uri);`的设计思想
+1. 根据URI获取方案，如果方案为空，则抛出异常
+2. 如果方案等于默认文件系统提供的方案，那么就使用默认的文件系统生成路径
+3. 如果不是默认的，则查询所有的文件系统提供器，找到方案相等的
+4. 如果这样都没有找到，那么就要抛出异常
+非常完美的设计方案，
+
+
+文件属性元数据
+文件的属性由视图完成
+NIO2支持的视图有哪些呢？
+支持六种视图，分别是
+
+  1. `BasicFileAttributeView` 这是一个视图的基本属性，所有的文件系统实现类都必须支持，属性视图名是`basic`
+  2. `DosFileAttributeView` 提供了标准的四种属性支持DOS属性的文件系统，属性视图名为`dos`
+  3. `PosixFileAttributeView` UNix特有的属性 属性名为`posix`
+  4. `FileOwnerAttributeView` 属性名为`owner`
+  5. `AclFileAttributeView` 属性名为`acl`
+  6. `UserDefinedFileAttributeView` 用户自定义的属性 属性名为`user`
+
+帮助类并不做实际上的工作，而是将工作交给内部静态类来实现
+`java.nio.file.FileSystems` 工厂类，主要用来获取`FileSystem`和创建新的`FileSystem`
+
+掌握文件属性的6种视图，有其包括了哪些属性以及简写情况下都是什么东西
+
+1. basic 基本视图 BasicFileAttributeView
+
+唉，微信支付给我做的啊，难受死了，感觉不是这样的，但是也没有办法了，我也不想这样的，只能这样了
+
+2016年11月17日 星期四
+
+买的机械键盘终于到了，虽然是入门级，但是感觉很不错，打字的那种爽快感无与伦比，实在是刺激极了
+嘿嘿，希望这个机械键盘可以陪伴我度过我的编码时间
+等明年再说吧，明年争取换一个背光的机械键盘
+
+今天就是星期五了，非常的高兴，又可以休息了，打算最近开始重新继续学习，不可以辜负我自己的期望啊
+
+昨天没怎么学习文件属性，今天继续
+首先从基本的basic 属性开始学起
+
+使用`Files.readAttributes` 获取指定的属性的集合
+
+使用`Files.getAttribute` 获取单个属性
+
+Basic属性名：
+
+  1. lastModifiedTime 上次修改时间
+  2. lastAccessTime 上次访问时间
+  3. creationTime 创建时间
+  4. size 文件大小
+  5. isRegularFile 是不是普通文件
+  6. isDirectory 是否是目录
+  7. isSymbolicLink 是否是符号链接
+  8. isOther 是否是其他
+  9. fileKey 这个是什么鬼
+
+使用`Files.getFileAttributeView().setTimes`来更新属性
+
+Dos属性名
+
+  1. hidden 文件是否隐藏
+  2. readonly 文件是否只读
+  3. system 文件是否是系统文件
+  4. archive 文件是否是档案
+
+
+文件拥有者视图
+
+  1. owner 只有该一个属性名
+
+可以有多种方式设置文件的拥有者
+
+  1. 使用`Files.setOwner()` 设置文件拥有者，通过路径的文件系统来获取用户信息
+  2. 使用`FileOwnerAttributeView.setOwner()` 使用文件拥有者属性视图来设置拥有者
+  3. 使用`Files.setAttribute()` 设置文件拥有者
+  4. 使用`FileOwnerAttributeView.getOwner()` 获取文件拥有者
+  5. 使用`Files.getAttribute()` 获取文件拥有者
+
+POSIX属性视图名
+
+  1. group 该文件属于哪个组
+  2. permissions 该文件的九个权限
+
+ACL视图名
+
+  1. acl 获取访问控制列表
+  2. owner 获取文件拥有者
+
+`File Store` 文件存储属性
+
+用户自定义属性就不看了，可能用到的机会比较小
+
+加油了 时间不多了
+
+硬链接和软连接的区别
+
+  1. 硬链接只能为文件创建，不能为目录，软连接既可以是一个文件，也可以是一个目录
+  2. 硬链接不能跨文件系统而存在，但是软连接可以
+  3. 硬链接的目标文件必须存在，软连接的目标可能不存在
+  4. 删除源文件，硬链接仍然可用，但软连接就会不起作用了
+  5. 删除硬链接和软连接不会影响源文件本身
+
+这个稍微了解一下就可以了，准备开始新的知识的学习
+
+文件和目录
+
+下面开始学习`java.nio.file.Files`类了，这个类可是一个非常重要的类啊
+
+  1. `Files.exists(path)` 检查文件或目录是否存在
+  2. `Files.notExists(path)` 检查文件或目录是否不存在
+
+检查文件的可访问性
+
+  1. `Files.isReadable(path);` 判断文件是否可读的
+  2. `Files.isWritable(path);` 判断文件是否可写的
+  3. `Files.isExecutable(path);` 判断文件是否是可执行的
+  4. `Files.isRegularFile` 判断文件是否是普通文件
+
+检查两个路径是否指向同一个文件
+
+  1. `Files.isSameFile(path_1, path_2);` 判断两个路径是否指向同一个文件
+
+检查文件的可见性
+
+  1. `Files.isHidden(path);` 判断一个文件是否是隐藏的
+
+列出文件系统所有的根目录
+
+  1. `FileSystems.getDefault().getRootDirectories()` 获取所有的根目录
+
+创建一个新的目录 或者多级目录
+
+  1. `Files.createDirectory(newdir);`
+  2. `Files.createDirectories(newdir);`
+
+列出一个目录下的内容
+
+  1. `Files.newDirectoryStream(path)` 创建一个目录流来遍历
+
+使用 内置的glob过滤器来过滤文件名称
+
+glob的使用规则 和正则表达式差不多
+
+  1. * : 匹配0或多个字符
+  2. ** : 跨目录的匹配
+  3. ？ ： 匹配0个或1个字符
+  4. {} ：代表一个匹配集合，以逗号隔开
+  5. [] : 匹配一系列字符
+
+用户自定义过滤器 来过滤文件名称
+
+  ```
+  Path path = Paths.get("/home/hyolee/mavin/upload");
+  DirectoryStream.Filter<Path> filter = entry -> Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS);
+  try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(path, filter)) {
+      directoryStream.forEach(System.out::println);
+  } catch (IOException e) {
+      e.printStackTrace();
+  }
+  ```
+
+简单的几行代码，竟然包含了多个知识点
+lambda表达式，try-with-resource 方法引用
+
+`StandardOpenOption` 类
+
+  1. `READ` 打开一个文件 进行读操作
+  2. `WRITE` 打开一个文件，进行写操作
+  3. `CREATE` 如果文件不存在，就创建一个新的文件
+  4. `CREATE_NEW` 创建一个新的文件，如果文件已存在，就抛出异常
+  5. `APPPEND` 添加数据到文件的末尾，配合WRITE和CREATE使用
+  6. `DELETE_ON_CLOSE` 当流关闭时，删除文件，用来删除临时文件
+  7. `TRUNCATE_EXISTING` 清空文件到0字节
+  8. `SPARSE` 使新创建的文件变稀疏的
+  9. `SYNC` 保持文件内容和元数据和潜在的存储设备同步
+  10. `DSYNC` 保持文件内容和潜在的存储设备同步
+
+现在来学一个小的包，然后再去学其他的api
+
+`java.nio.charset` 这个是字符编码的包，所有的字符集都可以从这个包中来获取
+
+再也不用自己手写了，多累啊
+
+使用`java.nio.charset.StandardCharsets` 来获取字符编码
+
+`Charset charset = StandardCharsets.UTF_8;` 获取UTF8的字符编码
+
+`Files`， `FileStore`，`FileSystem`，`FileSystems`，`Paths`，`SimpleFileVisitor`
+
+这几个类是`java.nio.file`包中最重要的类了，一定要学习会
+
+递归遍历
+
+使用`Files.walkFileTree();` 来对目录进行遍历
+
+实现 `FileVisitor` 接口或者继承 `SimpleFileVisitor` 类都可以啊
+
+使用Glob模式来查询文件或目录
+
+需要使用到的类`PathMatcher`，可以用来接收glob字符串
+
+日了狗了
+
+当时自己就是这样设计的，非要一个漫展一个票，结果搞成这个样子，后期返工啊，最是头疼
+
+早知当初 何必今日啊
+没办法，自己的坑需要自己来填
+估计下个星期我的主要任务就是更改漫展实体和门票实体，以及他们之间的关系了，
+
+所以一个良好的架构设计是非常有必要的
+
+这也是我一直在努力的原因
+
+同时也希望提高自己带团队的经验，如何才能管理一个团队，如果提供员工最大的积极性
+
+首先是需求，一定要去调研 才能 得到结果
+
+需求不能变来变去，不然会产生一些很难看的问题
+
+最好和程序员讨论表的设计 实体的设计 功能的实现 等等一些基础的东西
+
+提供自己的编码能力
+
+再见了，不说了，明天休息了
+
+哈哈
