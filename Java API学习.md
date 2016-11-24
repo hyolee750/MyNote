@@ -375,3 +375,231 @@ lambda表达式，try-with-resource 方法引用
 再见了，不说了，明天休息了
 
 哈哈
+
+Selector 复用器的使用以及非阻塞socket的编写
+
+`java.nio.channels.Selector` 复用器，首先来研究一下java的文档
+
+`SelectableChannel`对象的多路复用器
+
+创建复用器的几种方法
+
+  1. 使用`Selector.open()`方法将会创建系统默认的复用器
+  2. 使用`SelectorProvider.openSelector()`方法将会创建自定义的复用器，一般来说，使用默认的就行了
+
+复用器会一直打开，直到使用`close()`方法才会关闭
+
+复用器处理多个socket的 I/O 读/写操作在一个单线程，
+
+`SelectionKey` 对象
+
+每次一个channel注册了一个selector，它由一个`java.nio.channels.SelectionKey`类的实例代表
+
+有四种可能类型的key：
+
+  1. SelectionKey.OP_ACCEPT 可接受的，相关联的客户端请求一个连接，通常由服务端创建
+  2. SelectionKey.OP_CONNECT 可连接的，服务端接收连接，通常由客户端创建
+  3. SelectionKey.OP_READ 可读的，这表明一个读的操作
+  4. SelectionKey.OP_WRITE 可写的，这表明一个写操作
+
+复用器负责操作三个selection keys的集合
+
+  1. key-set 包含该复用器注册的channel的keys
+  2. selected-key 已被检测到准备操作
+  3. cancelled-key 已经取消但还没有解除注册的key
+
+`Selector`的方法
+
+  1. `Selector.open()` 创建一个新的复用器
+  2. `Selector.select()` 通过执行阻塞选择操作来选择一组键
+  3. `Selector.select(t)` 同上，只不过是该方法只阻塞特定的时间，超过这个时间之后就会返回0
+  4. `Selector.selectNow()` 同select，但是不阻塞选择操作，如果没有选择任何东西，就会返回0
+  5. `Selector.selectedKeys()` 返回复用器选择的key
+  6. `Selector.keys()` 返回该复用器的key集合
+  7. `SelectionKey.isValid()` 检查一个key是否是有效的，被取消，channel关闭，复用器关闭等 都是无效的
+  8. `SelectionKey.isReadable()` 测试是否可读
+  9. `SelectionKey.isWritable()` 测试是否可写
+  10. `SelectionKey.isConnectable()` 测试是否连接着
+  11. `SelectionKey.cancel()` 取消key
+  12. `SelectionKey.interestOps()` 返回该key感兴趣的集合
+  13. `SelectionKey.interestOps(t)` 设置该key感兴趣的集合
+  14. `SelectionKey.readyOps()` 返回该key准备操作的集合
+
+`ServerSocketChannel` 和`SocketChannel` 可以通过`register()` 方法，用来注册当前channel和给定的复用器
+并且返回一个可选择的key
+
+#### 写服务端的代码的步骤
+
+  1. 准备工作 一个Map用来存放每个socketchannel的字节数据，一个bytebuffer充当缓存
+  2. 使用`ServerSocketChannel.open();`和`Selector.open();` 打开channel和Selector
+  3. 使用`server.isOpen() && selector.isOpen()` 来判断channel和Selector是否已经打开
+  4. 打开成功后，使用`server.configureBlocking(false);`配置非阻塞
+  5. 使用`server.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);` 配置相关属性
+  6. 使用`server.bind(new InetSocketAddress("127.0.0.1", 7777));` 绑定地址
+  7. 使用`server.register(selector, SelectionKey.OP_ACCEPT);` 注册Selector到channel上
+  8. 使用`selector.select();` 获取一组键
+  9. 使用`selector.selectedKeys()` 获取所有已选择的key进行遍历
+  10. 判断key的状态
+  11. `key.isValid()` = false 表示无效，继续执行
+  12. `key.isAcceptable()` = true，表示服务端，通过key.channel获取的是serversocketchannel，这样可以向客户端写数据
+  13. `key.isReadable()` =true 表示客户端是可读的，
+  14. `key.isWritable()` 表示客户端是可写的
+
+#### 写客户端的代码的步骤
+
+写客户端的步骤就简单了一点
+
+  1. 打开channel，打开Selector
+  2. 判断是否已打开，然后配置非阻塞，配置其他属性
+  3. channel注册Selector，属性为connect
+  4. channel 连接服务端
+  5. Selector.select(t) >0 的时候，对所有已选择的key进行遍历
+  6. 通过`key.isConnectable()` 判断key是否已连接了，连接了，就可以进行读写操作了，这个和之前的代码差不多的
+
+为了更方面的学习这个api，我决定把源码复制进来
+
+服务端代码：
+
+```
+private static Map<SocketChannel, List<byte[]>> keepDataTrack = new HashMap<>();
+final ByteBuffer buffer = ByteBuffer.allocate(1024);
+ServerSocketChannel server = ServerSocketChannel.open();
+final Selector selector = Selector.open();
+if (server.isOpen() && selector.isOpen()) {
+    server.configureBlocking(false);
+    server.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
+    server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+
+    // 绑定
+    server.bind(new InetSocketAddress("127.0.0.1", 7777));
+    server.register(selector, SelectionKey.OP_ACCEPT);
+
+    while (true) {
+        selector.select();
+        final Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+        while (keys.hasNext()) {
+            final SelectionKey key = keys.next();
+            keys.remove();
+            if (!key.isValid())
+                continue;
+            if (key.isAcceptable()) {
+                ServerSocketChannel serverSocketChannel = (ServerSocketChannel) key.channel();
+                SocketChannel socketChannel = serverSocketChannel.accept();
+                socketChannel.configureBlocking(false);
+                System.out.println("Incoming connection from: " + socketChannel.getRemoteAddress());
+                socketChannel.write(ByteBuffer.wrap("来自服务端的HELLO!\n".getBytes()));
+                keepDataTrack.put(socketChannel, new ArrayList<>());
+                socketChannel.register(selector, SelectionKey.OP_READ);
+            } else if (key.isReadable()) {
+                SocketChannel socketChannel = (SocketChannel) key.channel();
+                buffer.clear();
+                int numRead = socketChannel.read(buffer);
+                if (numRead == -1) {
+                    keepDataTrack.remove(socketChannel);
+                    System.out.println("Connection closed by: " + socketChannel.getRemoteAddress());
+                    socketChannel.close();
+                    key.cancel();
+                    return;
+                }
+                byte[] data = new byte[numRead];
+                System.arraycopy(buffer.array(), 0, data, 0, numRead);
+                System.out.println(new String(data, "UTF-8") + " from " +
+                        socketChannel.getRemoteAddress());
+                final List<byte[]> channelData = keepDataTrack.get(socketChannel);
+                channelData.add(data);
+                key.interestOps(SelectionKey.OP_WRITE);
+            } else if (key.isWritable()) {
+                SocketChannel socketChannel = (SocketChannel) key.channel();
+                List<byte[]> channelData = keepDataTrack.get(socketChannel);
+                Iterator<byte[]> its = channelData.iterator();
+                while (its.hasNext()) {
+                    byte[] it = its.next();
+                    its.remove();
+                    socketChannel.write(ByteBuffer.wrap(it));
+                }
+                key.interestOps(SelectionKey.OP_READ);
+            }
+        }
+    }
+}
+
+```
+
+客户端代码：
+
+```
+final int DEFAULT_PORT = 7777;
+final String IP = "127.0.0.1";
+ByteBuffer buffer = ByteBuffer.allocateDirect(2 * 1024);
+ByteBuffer randomBuffer;
+CharBuffer charBuffer;
+Charset charset = Charset.defaultCharset();
+CharsetDecoder decoder = charset.newDecoder();
+try (final Selector selector = Selector.open();
+     SocketChannel socketChannel = SocketChannel.open()) {
+    if (socketChannel.isOpen() && selector.isOpen()) {
+        socketChannel.configureBlocking(false);
+        socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
+        socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 4 * 1024);
+        socketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+        socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
+        socketChannel.register(selector, SelectionKey.OP_CONNECT);
+        socketChannel.connect(new InetSocketAddress(IP, DEFAULT_PORT));
+        System.out.println("Localhost: " + socketChannel.getLocalAddress());
+        while (selector.select(1000) > 0) {
+            final Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+            while (keys.hasNext()) {
+                final SelectionKey key = keys.next();
+                keys.remove();
+                SocketChannel channel = (SocketChannel) key.channel();
+                if (key.isConnectable()) {
+                    System.out.println("I am connected!");
+                    if (channel.isConnectionPending())
+                        channel.finishConnect();
+
+                    while (channel.read(buffer) != -1) {
+                        buffer.flip();
+                        charBuffer = decoder.decode(buffer);
+                        System.out.println(charBuffer.toString());
+
+                        if (buffer.hasRemaining())
+                            buffer.compact();
+                        else
+                            buffer.clear();
+
+                        int r = new Random().nextInt(100);
+                        if (r == 50) {
+                            System.out.println("50 was generated! Close the socket channel!");
+                            break;
+                        } else {
+                            randomBuffer = ByteBuffer.wrap("Random number:"
+                                    .concat(String.valueOf(r)).getBytes("UTF-8"));
+                            channel.write(randomBuffer);
+                            try {
+                                Thread.sleep(1500);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+} catch (IOException e) {
+    e.printStackTrace();
+}
+```
+
+
+### 异步I/O 重头戏来了
+
+这个必须掌握！！！！
+
+接口 == `java.nio.channels.AsynchronousChannel`
+子接口 == `java.nio.channels.AsynchronousByteChannel`
+实现类
+
+    java.nio.channels.AsynchronousFileChannel
+    java.nio.channels.AsynchronousServerSocketChannel
+    java.nio.channels.AsynchronousSocketChannel
