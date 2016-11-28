@@ -596,10 +596,207 @@ try (final Selector selector = Selector.open();
 
 这个必须掌握！！！！
 
-接口 == `java.nio.channels.AsynchronousChannel`
-子接口 == `java.nio.channels.AsynchronousByteChannel`
-实现类
+Java NIO需要掌握的类
 
-    java.nio.channels.AsynchronousFileChannel
-    java.nio.channels.AsynchronousServerSocketChannel
-    java.nio.channels.AsynchronousSocketChannel
+`java.nio.ByteBuffer` 字节缓存区，主要用来存放数据和传输数据
+
+`java.nio.channels.SeekableByteChannel` 主要用来进行随机读写文件的功能的
+
+三个异步NIO的类必须要掌握
+
+`java.nio.channels.AsynchronousServerSocketChannel` 异步serversocketchannel
+
+`java.nio.channels.AsynchronousSocketChannel`
+
+`java.nio.channels.AsynchronousFileChannel` 用于处理文件的channel
+
+`java.nio.channels.Selector` 这个也要了解一下
+
+`java.nio.charset.Charset` 字符编码集
+
+`java.nio.charset.StandardCharsets` 标准字符编码集
+
+`java.nio.file.Files`
+
+`java.nio.file.Paths`
+
+`java.nio.file.FileSystems`
+
+`java.nio.file.Path`
+
+`java.nio.file.StandardOpenOption` 这个枚举类也要注意一下，比较重要
+
+六种文件属性 了解一下
+
+恩，掌握这些内容，基本上nio的api就算学习完成了，其中重点掌握的就是`Files`，`Paths`这两个工具类，特别特别重要
+
+## Java Lambda表达式
+
+#### Stream的基本概念
+
+Stream和集合的区别：
+
+  1. Stream不会自己存储元素。元素储存在底层集合或者根据需要产生。
+  2. Stream操作符不会改变源对象。相反，它会返回一个持有结果的新的Stream。
+  3. 3.Stream操作可能是延迟执行的，这意味着它们会等到需要结果的时候才执行。
+
+Stream操作的基本过程,可以归结为3个部分：
+
+  1. 创建一个Stream。
+  2. 在一个或者多个中间操作中，将指定的Stream转换为另一个Stream的中间操作。
+  3. 通过终止（terminal）方法来产生一个结果。该操作会强制它之前的延时操作立即执行，这之后该Stream就不能再被使用了。
+
+中间操作都是filter()、distinct()、sorted()、map()、flatMap()等，其一般是对数据集的整理（过滤、排序、匹配、抽取等）。
+
+终止方法往往是完成对数据集中数据的处理，如forEach()，还有allMatch()、anyMatch()、findAny()、 findFirst()，数值计算类的方法有sum、max、min、average等等。终止方法也可以是对集合的处理，如reduce()、 collect()等等。reduce()方法的处理方式一般是每次都产生新的数据集，而collect()方法是在原数据集的基础上进行更新，过程中不产生新的数据集。
+
+下面介绍强大的聚合操作，其主要分为两种：
+
+  1. 可变聚合：把输入的元素们累积到一个可变的容器中，比如Collection或者StringBuilder；
+  2. 其他聚合：除去可变聚合，剩下的，一般都不是通过反复修改某个可变对象，而是通过把前一次的汇聚结果当成下一次的入参，反复如此。比如reduce，count，allMatch；
+
+####  聚合操作reduce
+
+Stream.reduce，返回单个的结果值，并且reduce操作每处理一个元素总是创建一个新值。常用的方法有average, sum, min, max, count，使用reduce方法都可实现。这里主要介绍reduce方法：
+
+`T reduce(T identity, BinaryOperator<T> accumulator)`
+
+ identity：它允许用户提供一个循环计算的初始值。accumulator：计算的累加器，其方法签名为apply(T t,U u)，在该reduce方法中第一个参数t为上次函数计算的返回值，第二个参数u为Stream中的元素，这个函数把这两个值计算apply，得到的和会被赋值给下次执行这个方法的第一个参数。
+
+#### 收集结果collect
+
+当你处理完流时，通常只是想查看一下结果，而不是将他们聚合为一个值。先看collect的基础方法，它接受三个参数：
+
+`<R> R collect(Supplier<R> supplier, BiConsumer<R,? super T> accumulator, BiConsumer<R,R> combiner)`
+
+supplier：一个能创造目标类型实例的方法。accumulator：一个将当元素添加到目标中的方法。combiner：一个将中间状态的多个结果整合到一起的方法（并发的时候会用到）。
+
+单词学习时间
+```
+  hassle
+  英 ['hæs(ə)l]  美 ['hæsl]
+  vt. 找麻烦，搅扰；与…争辩；使…烦恼
+  n. 困难，麻烦；激战
+  vi. 争论，争辩
+  n. (Hassle)人名；(瑞典)哈斯勒
+  [ 过去式 hassled 过去分词 hassled 现在分词 hassling ]
+```
+
+```
+imperative
+英 [ɪm'perətɪv]  美 [ɪm'pɛrətɪv]
+adj. 必要的，不可避免的；紧急的；命令的，专横的；势在必行的；[语]祈使的
+n. 必要的事；命令；需要；规则；[语]祈使语气
+```
+
+elegant 高雅的
+
+concise 简洁的
+
+prone 倾向于
+
+函数式编程的好处：
+
+  1. 避免了显示的修改和重赋值变量
+  2. 更容易并行
+  3. 代码更容易表达
+  4. 更简洁
+  5. 代码更直观
+
+下午开始看JAVA8 关于lambda的两个包的API
+
+`java.util.function`和`java.util.stream`
+
+`java.util.stream.Collectors` 工具类的介绍
+
+恩，基本上这个类的常用方法都看完了，也自己练习了一下其中的一些方法的使用
+
+接下来，我将会按照使用频繁和重要程度对该类的方法进行排序
+
+```
+	1.  toList() 将流转换成集合
+	2.  toSet() 将流转换成集合
+	3.  joining() 将字符串流组合成字符串返回
+	4.  groupingBy() 按条件进行分组
+	5.  partitioningBy() 按条件分片
+	6.  toMap() 将流转换成map
+	7. toCollection() 将流转换成集合
+	8. mapping() 对流进行转换
+	9. maxBy/minBy 求最大/最小的元素
+	10. summingInt/summingLong/summingDouble 
+	11. averagingInt 。。
+	12. reducing
+	13. summarizingInt/summarizingLong/summarizingDouble	
+```
+
+去学习function了，发现不先了解一下function的话，不好理解stream的参数
+
+`Supplier<T>` 代表结果的供应商，没有参数，返回T结果
+
+`Predicate<T>` 代表一个布尔值，有一个参数，返回布尔值
+
+`Function<T,R>`代表一个函数，接收一个参数，返回一个结果
+
+`Consumer<T>` 代表一个消费者，接收一个参数，没有返回结果
+
+`BinaryOperator` 二进制操作符？ 接收两个同类型的参数，产生一个同类型的结果
+
+`BiConsumer<T,U>` 接收两个参数，不返回结果
+
+基本上就这几种类型，希望自己能看明白每个接口的作用，以及每个类型的意义
+
+`java.util.stream.Stream<T>` 研究一下这个类的方法吧 
+	
+	1. boolean	allMatch(Predicate<? super T> predicate) 返回是否该流所有的元素都匹配给定的谓语
+	2. boolean	anyMatch(Predicate<? super T> predicate) 返回是否有元素匹配给定的谓语
+	3. <R,A> R	collect(Collector<? super T,A,R> collector) 执行一个可变的聚合操作
+	4. static <T> Stream<T>	concat(Stream<? extends T> a, Stream<? extends T> b) 连接两个流
+	5. long	count() 返回流中元素的个数
+	6. Stream<T>	distinct() 去重
+	7. Stream<T>	filter(Predicate<? super T> predicate) 过滤
+	8. <R> Stream<R>	flatMap(Function<? super T,? extends Stream<? extends R>> mapper)  这个方法不知道干嘛用的，等会研究一下
+	9. void	forEach(Consumer<? super T> action) 迭代
+	10. static <T> Stream<T>	generate(Supplier<T> s) 生成
+	11. Stream<T>	limit(long maxSize) 限制
+	12. <R> Stream<R>	map(Function<? super T,? extends R> mapper) 转换
+	13. static <T> Stream<T>	of(T... values) 将元素转换成流
+	14. Optional<T>	reduce(BinaryOperator<T> accumulator)
+	15. Stream<T>	sorted() 排序
+	
+反正流就三个操作，开始操作，中间操作，终止操作
+
+开始操作
+	
+	1. static <T> Stream<T>	of(T... values)
+	2. static <T> Stream<T>	empty()
+	3. static <T> Stream<T>	generate(Supplier<T> s)
+	4. static <T> Stream<T>	iterate(T seed, UnaryOperator<T> f)
+	
+中间操作
+	
+	1. Stream<T>	distinct()
+	2. Stream<T>	filter(Predicate<? super T> predicate)
+	3. <R> Stream<R>	flatMap(Function<? super T,? extends Stream<? extends R>> mapper)
+	4. Stream<T>	limit(long maxSize)
+	5. <R> Stream<R>	map(Function<? super T,? extends R> mapper)
+	6. Stream<T>	skip(long n)
+	7. Stream<T>	sorted()
+
+终止操作
+
+	1. boolean	allMatch(Predicate<? super T> predicate)
+	2. boolean	anyMatch(Predicate<? super T> predicate)
+	3. <R,A> R	collect(Collector<? super T,A,R> collector)
+	4. long	count()
+	5. Optional<T>	findAny()
+	6. Optional<T>	findFirst()
+	7. void	forEach(Consumer<? super T> action)
+	8. Optional<T>	max(Comparator<? super T> comparator)
+	9. Optional<T>	min(Comparator<? super T> comparator)
+	10. Optional<T>	reduce(BinaryOperator<T> accumulator)
+	11. <A> A[]	toArray(IntFunction<A[]> generator)
+ 
+
+可能会有疑问的几个方法，其中flatmap这个方法是什么鬼啊
+
+
