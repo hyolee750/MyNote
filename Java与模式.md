@@ -1,3 +1,7 @@
+# Java 与设计模式
+
+[TOC]
+
 ### 开闭原则
 
 一个软件实体应对扩展开放，对修改关闭
@@ -370,3 +374,272 @@ java语言是类型安全的，通过以下三种方式完成该功能
 感觉身体好像被掏空了啊
 
 真的不想再这样下去了，希望以后加班的时候不要再这样了
+
+## 观察者模式
+
+定义了对象之间的一对多依赖，这样一来，当一个对象改变状态时，它的所有依赖都会受到通知并自动更新
+
+角色：
+
+1. 主题接口角色：对象使用此接口注册为观察者，或者把战场从观察者中删除
+2. 具体主题角色：总是实现主题接口，除了注册和撤销方法之外，具体主题还实现了notifyObservers()方法，此方法用于在状态改变时更新所有当前观察者
+3. 观察者接口角色：所有潜在的观察者必须实现观察者接口，这个接口只有一个`update()`方法，当主题状态改变时它被调用
+4. 具体观察者角色：实现了观察者角色接口，观察者必须注册具体主题，以便接收更新
+
+> 设计原则
+>
+> 为了交互对象之间的松耦合设计而努力
+
+松耦合的设计之所以能让我们建立有弹性的OO系统，能够应对变化，是因为对象之间的互相依赖降到了最低
+
+#### 使用java内置的观察者模式
+
+`java.util.Observer`接口和`java.util.Observable`类，在使用上更方便，因为许多功能都已经事先准备好了，你设置可以使用推或拉的方式传送数据
+
+具体主题角色不再实现抽象主题角色，而是继承java内置的`java.util.Observable`类，并继承到一些增加、删除、通知观察者的方法
+
+具体观察者对象实现观察者接口`java.util.Observer`。然后调用任何Observable对象的`addObserver()`方法，不想再当观察者时，调用`deleteObserver()`方法就可以了
+
+##### 可观察者如何送出通知？
+
+1. 首先需要利用扩展`java.util.Observable`接口产生可观察者类
+2. 先调用`setChanged()`方法，标记状态已经改变的事实
+3. 然后调用两种`notifyObservers()`方法中的其中一个
+
+##### 观察者如何接受通知？
+
+同以前一样，观察者实现了更新的方法，但是方法签名不太一样，`update(Observable o,Object arg)`。主题本身当做第一个变量，好让观察者知道是哪个主题通知它的，第二个参数正是传入`notifyObservers()`的数据对象，如果没有说明则为空
+
+内置观察者模式的缺点：
+
+1. 可观察者是一个类，而不是一个接口，更糟的是，它甚至没有实现一个接口
+2. 因为可观察者对象是一个类，你必须设计一个类继承它，如果某类想同时具有`Observable`类和另外一个超类的行为，就会陷入两难，因为java不支持多重继承
+3. 因为没有`Observable`接口，所以你无法建立自己的实现，和Java内置的Observer API搭配使用
+4. `setChanged()`方法被保护起来了，这意味着除非你继承自`Observable`否则你无法创建Observable实例并组合到你自己的对象中来，这个设计违反了第二个设计原则：**多用组合，少用继承**
+
+```java
+// 主题角色
+package learningdesignpattern.observer;
+
+public interface Subject {
+
+    void registerObserver(Observer observer);
+
+    void removeObserver(Observer observer);
+
+    void notifyObservers();
+}
+```
+
+```java
+// 观察者角色
+package learningdesignpattern.observer;
+
+public interface Observer {
+    void update(float temp,float humidity,float pressure);
+}
+```
+
+```java
+//具体主题对象
+package learningdesignpattern.observer;
+
+import java.util.ArrayList;
+
+public class WeatherData implements Subject {
+    private ArrayList<Observer> observers;
+    private float temperature;
+    private float humidity;
+    private float pressure;
+
+    public WeatherData() {
+        observers = new ArrayList<>();
+    }
+
+    @Override
+    public void registerObserver(Observer observer) {
+        observers.add(observer);
+    }
+
+    @Override
+    public void removeObserver(Observer observer) {
+        int i = observers.indexOf(observer);
+        if (i >= 0)
+            observers.remove(observer);
+    }
+
+    @Override
+    public void notifyObservers() {
+        observers.forEach(o -> o.update(temperature,humidity,pressure));
+    }
+
+    public void measurementsChanged() {
+        notifyObservers();
+    }
+
+    public void setMeasurements(float temperature, float humidity, float pressure) {
+        this.temperature = temperature;
+        this.humidity = humidity;
+        this.pressure = pressure;
+        measurementsChanged();
+    }
+}
+```
+
+```java
+// 具体观察者对象
+package learningdesignpattern.observer;
+
+public class CurrentConditionsDisplay implements Observer, DisplayElement {
+    private float temperature;
+    private float humidity;
+    private float pressure;
+    private Subject weatherData;
+
+    public CurrentConditionsDisplay(Subject weatherData) {
+        this.weatherData = weatherData;
+        weatherData.registerObserver(this);
+    }
+
+    @Override
+    public void update(float temp, float humidity, float pressure) {
+        this.temperature = temp;
+        this.humidity = humidity;
+        display();
+    }
+
+    @Override
+    public void display() {
+        System.out.println("Current conditions: " + temperature + "F degress and " + humidity + "% humidity");
+    }
+}
+```
+
+
+
+总结：
+
+1. 观察者模式定义了对象之间一对多的关系
+2. 主题 也叫可观察者，用一个共同的接口来更新观察者
+3. 观察者和可观察者之间用松耦合的方式结合，可观察者不知道观察者的细节，只知道观察者实现了观察者接口
+4. 使用此模式时，你可从被观察者处推或拉数据，推的方式更好
+5. 有多个观察者时，不可以依赖特定的通知次序
+6. Java有多种观察者模式的实现，包括`java.util.Observable`
+7. 要注意`java.util.Observable`实现上所带来的一些问题
+8. 如果有必要的话，可以实现自己的Observable，这并不难，不要害怕
+9. Swing大量的使用了观察者模式，许多GUI框架也是如此
+10. 此模式也被应用在许多地方，例如JavaBeans和RMI
+
+OO基础：抽象
+
+OO原则：
+
+1. 封装变化
+2. 多用组合，少用继承
+3. 针对接口编程，不针对实现编程
+4. 为交互对象之间的松耦合设计而努力
+
+OO模式：
+
+观察者模式-在对象之间定义一对多的依赖，这样依赖，当一个对象改变状态，依赖他的对象都会收到通知并自动更新
+
+观察者模式中的设计原则：
+
+1. 在观察者模式中，会改变的是主题的状态，以及观察者的数目和类型，用这个模式，你可以改变依赖于主题状态的对象，却不必改变主题，这就叫做提前规划
+2. 主题与观察者都使用接口，观察者利用主题的接口向主题注册，而主题利用观察者接口通知观察者
+3. 观察者模式利用组合将许多观察者组合进主题中，对象之间的这种关系不是通过继承产生的，而是在运行时利用组合的方式产生的
+
+## 装饰者模式
+
+> 设计原则
+>
+> 类应该对扩展开放，对修改关闭
+
+### 要点：
+
+1. 装饰者和被撞死的对象有相同的超类型
+2. 你可以用一个或多个装饰者包装一个对象
+3. 既然装饰者和被装饰对象有相同的超类，所以在任何需要原始对象的场合，可以用装饰过的对象代替它
+4. 装饰者可以在说委托被装饰者的行为之前与之后，加上自己的行为，以达到特定的目的
+5. 对象可以在任何时候被装饰，所以可以在运行时动态地，不限量的用你喜欢的装饰者来装饰对象
+
+### 定义装饰者模式
+
+装饰者模式动态地将责任附加到对象上，若要扩展功能，装饰者提供了比继承更有弹性的替代方案
+
+角色：
+
+1. 组件角色：每个组件都可以单独使用，或者被装饰者包起来使用
+2. 具体组件角色：是我忙丁克动态地加上新行为的对象，它扩展自组件角色
+3. 装饰器角色：每一个装饰者都有一个组件，也就是说，装饰者有一个实例变量以保存某个组件的引用，这是装饰者共同实现的接口，也可以是抽象类
+4. 具体装饰器角色：有一个实例变量，可以记录所装饰的事物，装饰者可以扩展组件的状态，装饰者可以加上新的方法，新行为是通过在旧行为前面或后面做一些计算了添加的
+
+使用装饰模式来包装输入流，来达到增加`InputStream`的功能的目的，例如下面的代码就是读取文件中的数据，然后将字母全部转换成小写的例子
+
+```java
+package learningdesignpattern.decorator;
+
+import java.io.*;
+
+public class LowCaseInputStream extends FilterInputStream {
+
+    protected LowCaseInputStream(InputStream in) {
+        super(in);
+    }
+
+    @Override
+    public int read() throws IOException {
+        int c = super.read();
+        return c == -1 ? c : Character.toLowerCase((char) c);
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+        int result = super.read(b, off, len);
+        for (int i = off; i < off + result; i++) {
+            b[i] = (byte) Character.toLowerCase((char) b[i]);
+        }
+        return result;
+    }
+
+    public static void main(String[] args) throws IOException {
+        int c;
+        InputStream is = new LowCaseInputStream(new BufferedInputStream(new FileInputStream("D:\\hello.txt")));
+        while ((c = is.read()) >=0)
+            System.out.print((char) c);
+        is.close();
+    }
+}
+
+```
+
+### 最后总结：
+
+1. 继承属于扩展形式之一，但不见得是达到弹性设计的最佳方案
+2. 在我们的设计中，应该允许行为可以被扩展，而无需修改现有的代码
+3. 组合和委托可用于在运行时动态的加上新行为
+4. 除了继承，装饰者模式也可以让我们扩展行为
+5. 装饰者模式意味着一群装饰者类，这些类用来包装具体组件
+6. 装饰者模式反映出被装饰组件类型，事实上，他们具有相同的类型，都经过接口或继承实现
+7. 装饰者可以在被装饰者的行为前面或后面加上自己的行为，甚至将被装饰者的行为整个取代掉，而达到特定目的
+8. 你可以用无数个装饰者包装一个组件
+9. 装饰者一般对组件的客户是透明的，除非客户程序依赖于组件的具体类型
+10. 装饰者会导致设计中出现许多的小对象，如果过度使用，会让程序变得复杂
+
+## 工厂模式
+
+所有工厂摸底都用来封装对象的创建，工厂方法模式通过让子类决定改创建的对象是什么，来达到将对象创建的过程封装的目的
+
+### 定义工厂方法模式
+
+> 定义了一个创建对象的接口，但由子类决定要实例化的类是哪一个，工厂方法让类的实例化推迟到子类
+
+
+> 设计原则
+>
+> 依赖倒置原则：要依赖抽象，不要依赖具体类
+
+
+
+
+
