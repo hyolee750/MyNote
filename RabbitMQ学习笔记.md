@@ -1,4 +1,335 @@
+# RabbitMQ Cookbook 学习笔记
+
+希望自己能够静下心来，好好的学习和研究RabbitMQ这样的高级消息队列协议，加油
+
+[TOC]
+
+## 第一章 使用AMQP
+
+在这一章，我们将会讨论：
+
+1. 连接到一个消息中间件
+2. 生产消息
+3. 消费消息
+4. 使用JSON序列化body
+5. 使用RPC消息
+6. 广播消息
+7. 使用**direct** 交换器处理消息路由
+8. 使用**topic** 交换器处理消息路由
+9. 保证消息处理
+10. 发布消息到多个消费者
+11. 使用消息的属性
+12. 消息事务
+13. 处理不能发送的消息
+
+### 介绍
+
+**Advanced Message Queuing Protocol(AMQP)** 高级消息队列协议
+
+RabbitMQ是一个免费的，完整的AMQP中间件实现，实现了AMQP的 0-9-1的版本，
+
 总是要学点什么才可以啊，不能一直玩游戏，今天的主要目标就是学习AMQP和Rabbitmq的用法
+
+### 连接到中间件
+
+1. 导入需要的类
+
+   ```java
+   import com.rabbitmq.client.Channel;
+   import com.rabbitmq.client.Connection;
+   import com.rabbitmq.client.ConnectionFactory;
+   ```
+
+2.  创建`ConnectionFactory`客户端的实例
+
+   ```java
+   ConnectionFactory factory = new ConnectionFactory();
+   ```
+
+3.  设置`ConnectionFactory`参数
+
+   ```java
+   factory.setHost(rabbitMQhostname);
+   ```
+
+4.  连接到RabbitMQ中间件
+
+   ```java
+   factory.setHost(rabbitMQhostname);
+   ```
+
+5.  从新创建的`connection`中创建`channel`
+
+   ```java
+   Channel channel = connection.createChannel();
+   ```
+
+6. 关闭channel和connection
+
+   ```java
+   channel.close();
+   connection.close();
+   ```
+
+### 生产消息
+
+1. 声明队列
+
+   ```java
+   String myQueue = "myFirstQueue";
+   channel.queueDeclare(myQueue, true, false, false, null);
+   ```
+
+2. 发送消息到RabbitMQ
+
+   ```java
+   String message = "My message to myFirstQueue";
+   channel.basicPublish("",myQueue, null, message.getBytes());
+   ```
+
+3. 使用不同的属性发送消息到RabbitMQ
+
+   ```java
+   channel.basicPublish("",myQueue,MessageProperties.
+   PERSISTENT_TEXT_PLAIN,message.getBytes());
+   ```
+
+### 消费消息
+
+1. 声明队列
+
+   ```java
+   String myQueue="myFirstQueue";
+   channel.queueDeclare(myQueue, true, false, false, null);
+   ```
+
+2. 定义一个具体的消费者类继承`DefaultConsumer`
+
+   ```java
+   public class ActualConsumer extends DefaultConsumer {
+     public ActualConsumer(Channel channel) {
+     	super(channel);
+     }
+     @Override
+     public void handleDelivery(
+       String consumerTag,
+       Envelope envelope,
+       BasicProperties properties,
+       byte[] body) throws java.io.IOException {
+         String message = new String(body);
+         System.out.println("Received: " + message);
+     }
+   }
+   ```
+
+3. 创建一个`consumer`对象，绑定到我们的`channel`上
+
+   ```java
+   ActualConsumer consumer = new ActualConsumer(channel);
+   ```
+
+4. 开始消费信息
+
+   ```java
+   String consumerTag = channel.basicConsume(myQueue, true,
+   consumer);
+   ```
+
+5. 一旦完成，停止消费
+
+   ```java
+   channel.basicCancel(consumerTag);
+   ```
+
+### 使用JSON序列化body
+
+1. 除了标准的导入，我们还需要导入以下类
+
+   ```java
+   import com.rabbitmq.tools.json.JSONWriter;
+   ```
+
+2. 创建一个非持久的队列
+
+   ```java
+   String myQueue="myJSONBodyQueue_4";
+   channel.queueDeclare(MyQueue, false, false, false, null);
+   ```
+
+3. 创建一个`Book`集合，然后填充示例数据
+
+   ```java
+   List<Book>newBooks = new ArrayList<Book>();
+   for (inti = 1; i< 11; i++) {
+     Book book = new Book();
+     book.setBookID(i);
+     book.setBookDescription("History VOL: " + i );
+     book.setAuthor("John Doe");
+     newBooks.add(book);
+   }
+   ```
+
+4. 使用`JSONWriter`序列化该集合
+
+   ```java
+   JSONWriter rabbitmqJson = new JSONWriter();
+   String jsonmessage = rabbitmqJson.write(newBooks);
+   ```
+
+5. 最终发送我们的JSON消息
+
+   ```java
+   channel.basicPublish("",MyQueue,null, jsonmessage.getBytes());
+   ```
+
+6. 创建Python消费者进行消费
+
+   ```python
+   import pika;
+   import json;
+   connection =
+   pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host));
+   channel = connection.channel()
+   my_queue = "myJSONBodyQueue_4"
+   channel.queue_declare(queue=my_queue)
+   def consumer_callback(ch, method, properties, body):
+     newBooks=json.loads(body);
+     print" Count books:",len(newBooks);
+     for item in newBooks:
+       print 'ID:',item['bookID'], '-
+       Description:',item['bookDescription'],' -
+       Author:',item['author']
+   channel.basic_consume(consumer_callback, queue=my_queue,
+   no_ack=True)
+   channel.start_consuming()
+   ```
+
+### 使用RPC消息
+
+### 广播消息
+
+### 使用`direct`交换器处理消息路由
+
+### 使用`topic`交换器处理消息路由
+
+### 保证消息处理
+
+### 发布消息到多个消费者
+
+### 使用消息属性
+
+### 消息事务
+
+### 处理不可发送的消息
+
+## 第二章 超越AMQP标准
+
+在这一章，我们将会讨论
+
+1. 如何让消息过期
+2. 如果让消息在具体的队列上过期
+3. 如何让队列过期
+4. 管理被拒绝的或过期的消息
+5. 理解有选择的交换器扩展
+6. 理解已验证的用户ID扩展
+7. 通知队列失败的消费者
+8. 在消息内嵌入消息目的地
+
+## 第三章 管理RabbitMQ
+
+在这一章我们将会讨论
+
+1. 使用vhost
+2. 配置用户
+3. 使用SSL
+4. 实现客户端认证
+5. 从浏览器管理RabbitMQ
+6. 配置RabbitMQ参数
+7. 开发Python应用来监控RabbitMQ
+8. 开发你自己的应用来监控RabbitMQ
+
+## 第四章 混合不同的技术
+
+在这一章我们将会讨论
+
+1. 使用.NET客户端
+2. 通过MQTT从Iphone应用程序绑定到RabbitMQ
+3. 从安卓发布消息
+4. 使用Qpid交换RabbitMQ消息
+5. 使用Mosquitto交换RabbitMQ消息
+6. 使用.NET客户端绑定一个WCF应用
+
+## 第五章 在web应用中使用RabbitMQ
+
+在这一章我们将会讨论
+
+1. 使用Spring开发web监控应用
+2. 使用Spring开发异步web搜索器
+3. 使用STOMP开发web监控应用
+
+## 第六章 开发可扩展的应用
+
+在这一章我们将会讨论
+
+1. 创建一个localhost集群
+2. 创建一个简单集群
+3. 自动添加一个RabbitMQ集群
+4. 在消费者中引入负载均衡
+5. 创建集群客户端
+
+## 第七章 开发高可用应用
+
+在这一章我们将会讨论
+
+1. 镜像队列
+2. 同步队列
+3. 优化镜像策略
+4. 在一组中间件上发布消息
+5. 创建一个地理集群复制集
+6. 过滤和转发消息
+7. 结合高扩展技术
+8. 客户端高可用
+
+## 第八章 RabbitMQ性能调优
+
+在这一章我们将会讨论
+
+1. 多线程和队列
+2. 系统调优
+3. 改善带宽
+4. 使用不同的发行工具
+
+## 第九章 扩展RabbitMQ功能
+
+在这一章我们将会讨论
+
+1. 启用和配置STOMP插件
+2. 管理RabbitMQ集群
+3. 监控铲状态
+4. 开发新的插件-使用ODB连接到一个关系型数据库
+
+## 第十章 RabbitMQ on AWS
+
+在这一章我们将会讨论
+
+1. 使用RabbitMQ EC2实例
+2. 创建一个主图片
+3. 使用EC2实例创建集群
+4. 在RabbitMQ集群之前使用AWS负载均衡
+5. 配置EC2动态绑定
+6. 在云上处理负载峰值和资源优化
+
+## 第十一章　AMQP和云计算-RabbitMQ on PaaS　
+
+在这一章我们将会讨论
+
+1. CloudAMQP和RabbitMQ
+2. 第一个云工厂应用
+3. 在云工厂上使用RabbitMQ
+
+
+
+
 
 ### 理解消息通信
 
