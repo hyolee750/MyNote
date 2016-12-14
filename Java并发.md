@@ -222,7 +222,7 @@ Java API提供了一个类允许一个或多个线程等待直到一系列操作
 和其他同步方法的不同：
 
 1.  `CountDownLatch` 机制不能用来保护一个共享的资源或一个核心部分，它被用来同步一个或多个执行不同任务的线程
-2. 它只允许使用一次，一旦该类的计数器到达0，再次调用该类的方法都没有效果，如果你想要再次做同样的同步，你必须创建一个新的对象
+2.  它只允许使用一次，一旦该类的计数器到达0，再次调用该类的方法都没有效果，如果你想要再次做同样的同步，你必须创建一个新的对象
 
 #### 同步任务在一个共同点
 
@@ -475,3 +475,189 @@ Fork/Join框架提供了执行任务返回结果的能力
 这种类型的任务由`RecursiveTask` 实现，该类继承了ForkJOinTask类，实现了Future接口
 
 ForkJoinPool提供了另外一种方法来完成任务的执行，并返回结果，这就是complete()方法
+
+#### 运行异步任务
+
+当你在ForkJoinPool中执行ForkJoinTask任务时，你可以使用同步或异步的方式，当你使用同步的时候，发送任务到pool的方法知道被发送的任务完成执行之后才会返回，而异步的时候，发送任务到执行器的方法会立即返回，所以任务可以继续它的执行
+
+使用`fork()` 提交异步处理的任务
+
+使用`join()` 获取任务处理的结果
+
+这个比较重要啊，一定要理解了
+
+```java
+public class FolderProcessor extends RecursiveTask<List<String>> {
+    private static final long serialVersionUID = 1L;
+    private String path;
+    private String extension;
+
+    public FolderProcessor(String path, String extension) {
+        this.path = path;
+        this.extension = extension;
+    }
+
+    public static void main(String[] args) {
+        ForkJoinPool pool = new ForkJoinPool();
+        FolderProcessor system = new FolderProcessor("/home/hyolee", "log");
+        FolderProcessor apps = new FolderProcessor("/home/hyolee/idea16", "java");
+        FolderProcessor documents = new FolderProcessor("/home/hyolee", "pdf");
+        pool.execute(system);
+        pool.execute(apps);
+        pool.execute(documents);
+        do {
+            System.out.printf("******************************************\n");
+                    System.out.printf("Main: Parallelism: %d\n",pool.
+                            getParallelism());
+            System.out.printf("Main: Active Threads: %d\n",pool.
+                    getActiveThreadCount());
+            System.out.printf("Main: Task Count: %d\n",pool.
+                    getQueuedTaskCount());
+            System.out.printf("Main: Steal Count: %d\n",pool.
+                    getStealCount());
+            System.out.printf("******************************************\n");
+            try {
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        } while ((!system.isDone())||(!apps.isDone())||(!documents.isDone()));
+        pool.shutdown();
+        List<String> results;
+        results=system.join();
+        System.out.printf("System: %d files found.\n",results.size());
+        System.out.println("eg. " + results.get(0));
+        results=apps.join();
+        System.out.printf("Apps: %d files found.\n",results.size());
+        System.out.println("eg. " + results.get(0));
+        results=documents.join();
+        System.out.printf("Documents: %d files found.\n",results.size());
+        System.out.println("eg. " + results.get(0));
+    }
+
+    @Override
+    protected List<String> compute() {
+        List<String> list = new ArrayList<>();
+        List<FolderProcessor> tasks = new ArrayList<>();
+        File file = new File(path);
+        File content[] = file.listFiles();
+        if (content != null) {
+            for (int i = 0; i < content.length; i++) {
+                if (content[i].isDirectory()) {
+                    FolderProcessor task = new FolderProcessor(content[i].getAbsolutePath(), extension);
+                    task.fork();
+                    tasks.add(task);
+                } else {
+                    if (checkFile(content[i].getName())) {
+                        list.add(content[i].getAbsolutePath());
+                    }
+                }
+            }
+        }
+        if (tasks.size() > 50) {
+            System.out.printf("%s: %d tasks ran.\n", file.getAbsolutePath(), tasks.size());
+        }
+        addResultsFromTasks(list, tasks);
+        return list;
+    }
+
+    private void addResultsFromTasks(List<String> list,
+                                     List<FolderProcessor> tasks) {
+        for (FolderProcessor task : tasks) {
+            list.addAll(task.join());
+        }
+    }
+
+    private boolean checkFile(String name) {
+        return name.endsWith(extension);
+    }
+}
+```
+
+这个例子的关键点就是`FolderProcessor` 类，每个任务处理一个文件的内容，内容包含一下两种元素：
+
+1. 文件
+2. 其他文件夹
+
+如果该任务找到的是一个文件夹，它创建另外一个Task对象去处理那个文件夹，然后使用fork()方法发送到Pool，如果有一个可用的工作线程或者它可以创建新的线程来执行这个任务
+
+fork()方法会立即返回，所以该任务会继续处理文件夹的内容，对于每个文件，一个任务比较它的后缀和我们要寻找的后缀，如果它们相等，把文件的名字增加到结果的集合
+
+一旦任务已经处理了一个指定文件夹的所有内容，使用join()方法等待所有它发送给Pool的任务的终止
+
+ForkJoinPool类运行以异步的方式执行任务，你可以使用execute方法发送三个初始化任务到Pool中，你也可以使用shutdown()完成Pool
+
+使用join()方法等待任务的终止，并获取它们的结果，也可以使用get方法达到这个目的
+
+#### 在任务中抛出异常
+
+#### 取消任务
+
+当你在ForkJoinPool类中执行ForkJoinTask对象时，你可以在它们开始之前取消它们，ForkJoinTask类提供了cancel()方法，当你想要取消一个任务时，你需要注意以下几点：
+
+1. ForkJoinPool类没有提供任何方法取消它已经运行或正在等待的任务
+2. 当你取消一个任务，你不能取消已经执行的任务
+
+### 6. 并发集合
+
+- 使用非阻塞线程安全集合
+- 使用阻塞线程安全集合
+- 使用优先级排序的阻塞线程安全集合
+- 使用线程安全的map
+- 生成并发随机数
+- 使用原子变量
+- 使用原子数组
+
+java在并发应用中提供了两种类型的集合：
+
+1. 阻塞集合，这类集合包含添加和删除数据的操作，如果操作不能被立即调用，因为集合满了或者空的，线程会一直等待直到操作可以生效
+2. 非阻塞集合，这类集合也包含了添加和删除数据的操作，如果操作不能立即调用，该操作返回空或者抛出异常，但是调用的线程不会阻塞
+
+- 非阻塞集合ConcurrentLinkedDeque
+- 阻塞集合 LinkedBlockingDeque
+- 用于生产者和消费者数据的阻塞集合LinkedTransferQueue
+- 根据优先级排序的阻塞集合PriorityBlockingQueue
+- 有延迟元素的阻塞列表DelayQueue
+- 非阻塞可导航的map ConcurrentSkipListMap
+- 随机数 ThreadLocalRandom
+- 原子变量 AtomicLong 和AtomicIntegerArray
+
+#### 使用非阻塞线程安全的集合
+
+如果操作不能立即执行，那么将会抛出一个异常或者返回一个null值，ConcurrentLinkedDeque实现了非阻塞并发集合
+
+#### 使用阻塞线程安全的集合
+
+阻塞集合和非阻塞集合的区别：阻塞的集合会等待操作执行之后才会返回，非阻塞的集合如果操作不能执行会立即返回null或抛出异常
+
+LinkedBlockingDeque 这个就是阻塞的线程安全的集合
+
+客户端使用put()方法把字符串插入到集合中，如果集合是满的，该方法会阻塞它的线程的执行，直到集合中有一个空的空间
+
+使用take()方法可以从集合中获取字符串，如果集合是空的，该方法会阻塞它的线程的执行直到集合中有元素
+
+这两个方法在阻塞的时候。如果被中断都会抛出中断异常，所以你必须手动捕获
+
+`LinkedBlockingDeque` 提供了其他方法来存放和获取元素，和阻塞不同，抛出异常或者返回null
+
+- takeFirst()和takeLast() 返回集合相应的第一个元素和最后一个元素，它们从集合中删除返回的元素，如果集合是空的，这些方法会阻塞线程直到有元素在集合中
+- getFirst()和getLast() 返回第一个元素和最后一个元素，它们不会删除返回的元素，如果集合为空，这两个方法会抛出一个没有这样元素的异常
+- peek(),peekFirst(),peekLast() 返回第一个和最后一个元素，它们不会删除返回的元素，如果集合为空，这些方法会返回null
+- poll(),pollFirst(),pollLast() 返回第一个元素和最后一个元素，它们删除返回的元素，如果线程是空的，这些方法会返回null
+- add(),addFirst(),addLast() 在第一个位置和最后一个位置添加元素，如果集合满了，这些方法会抛出异常
+
+#### 使用优先级排序的阻塞线程安全集合
+
+`PriorityBlockingQueue` 一个有序集合
+
+所有你想要添加到`PriorityBlockingQueue` 的元素都必须实现Comparable接口，`PriorityBlockingQueue` 使用compareTo()方法来决定插入元素的位置，大的元素会在队列的尾部
+
+该类的另外一个重要的特性就是它是一个阻塞的数据结构，如果它们不能立即执行它们的操作，会一直阻塞线程直到可以操作
+
+`PriorityBlockingQueue` 类有其他有趣的方法
+
+1. clear() 删除队列中所有的元素
+2. take() 返回和删除队列的第一个元素，如果队列是空的，该方法会阻塞它的线程直到队列中有数据
+3.  put(E e) 插入一个元素
+4. peek() 返回队列的第一个元素，但是不删除
+
