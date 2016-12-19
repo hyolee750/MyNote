@@ -658,6 +658,50 @@ LinkedBlockingDeque 这个就是阻塞的线程安全的集合
 
 1. clear() 删除队列中所有的元素
 2. take() 返回和删除队列的第一个元素，如果队列是空的，该方法会阻塞它的线程直到队列中有数据
-3.  put(E e) 插入一个元素
+3. put(E e) 插入一个元素
 4. peek() 返回队列的第一个元素，但是不删除
+
+
+### 知识补充
+
+竞争条件的类型：
+
+1. check-then-act
+2. read-modify-write
+
+表达式count++ 实际上是3个单独的操作，读取count的值，count的值加1，储存更新后的值到count
+
+数据竞争：
+
+同一应用中的多个线程并发的访问内存中的同一块区域
+
+互斥锁：每次只有一个线程可以访问核心区域
+
+可见性：在核心区域执行的线程中总是可以看到共享变量最近的改变
+
+同步由监控器实现，每个java对象都有一个监控器
+
+锁被设计成重入的，当一个线程试图获取一个它已经持有的锁，请求总是成功的
+
+死锁
+
+活锁
+
+贪婪
+
+synchronized 包含互斥和可见，而volatile只包括可见
+
+通过java并发的学习，基本上了解了以下内容
+
+1. Thread类和Runnable接口和Callable接口的运用
+2. synchronized关键字，等待唤醒机制
+3. Lock，Condition的等待唤醒机制
+4. Semaphore，CountDownLatch，CylicBarrier，Phaser，Exchanger等高级并发工具集的使用
+5. Executor框架的使用
+6. Fork/Join框架的使用
+7. 并发集合的使用
+
+以后的目标可能不仅仅是简单的运用Java提供的API，还要理解其中的原理以及使用的场景，同时可能也要开发自己的并发框架
+
+加油
 
