@@ -279,7 +279,7 @@
 
 2. 存储评论列表
 
-   可以将一条品牌的各个元素序列化成字符串后作为列表类型键中的元素来存储
+   可以将一条评论的各个元素序列化成字符串后作为列表类型键中的元素来存储
 
    可以使用列表类型键posts:文章ID:comments来存储某个文章的所有评论
 
@@ -410,3 +410,149 @@
 - 有序集合类型是使用散列表和跳跃表实现的，所以即使读取位于中间部分的数据速度也很块
 - 列表中不能简单的调整某个元素的位置，但是有序集合可以
 - 有序集合要比列表类型跟耗费内存
+
+#### 1.6.2 命令
+
+1. 增加元素
+
+   ```
+   ZADD key score member [score member ...]
+   ```
+
+   如果该元素已经存在，则会用新的分数替换原有的分数，返回值是新加入到集合中的元素个数
+
+2. 获取元素的分数
+
+   ```
+   ZSCORE key member
+   ```
+
+3. 获取排名在某个范围的元素列表
+
+   ```
+   ZRANGE key start stop [WITHSCORES]
+   ZREVRANGE key start stop [WITHSCORES]
+   ```
+
+4. 获取指定分数范围的元素
+
+   ```
+   ZRANGEBYSCORE key min max [WITHSCORES]
+   ```
+
+   如果希望分数范围不包含端点值，可以在分数前加上"("符号
+
+5. 增加某个元素的分数
+
+   ```
+   ZINCRBY key increment member
+   ```
+
+#### 1.6.3 实践
+
+1. 实现按点击量排序
+
+   要按照文章的点击量排序，就必须再额外使用一个有序集合类型的键来实现，在这个键中以文章的ID作为元素，以该文章的点击量作为该元素的分数，将该键命名为`posts:page.view` 每次用户访问一篇文章时，博客程序就通过`ZINCRBY posts:page.view 1 文章ID` 更新访问量
+
+   ```
+   $postsPerPage = 10
+   $start = ($currentPage -1) * $postsPerPage
+   $end = $currentPage * $postsPerPage -1
+   $postID = ZREVRANGE posts:page.view,$start,$end
+   for each $id in $postID
+   	$postData = HGETALL post:$id
+   	print 文章标题:$postData.title
+   ```
+
+2. 改进按时间排序
+
+   为了能够自由滴更改文章发布时间，可以使用有序集合类型代替列表类型，
+
+   元素仍然是文章的ID，元素的分数是文章发布的UNIX时间，通过修改元素对应的分数就可以达到更改时间的目的
+
+   另外借助ZREVRANGEBYSCORE 命令还可以轻松获得指定时间范围的文章列表
+
+#### 1.6.4 命令拾遗
+
+1. 获取集合中元素的数量
+
+   ```
+   ZCARD key
+   ```
+
+2. 获取指定分数范围内的元素个数
+
+   ```
+   ZCOUNT key min max
+   ```
+
+3. 删除一个或多个元素
+
+   ```
+   ZREM key member [member ...]
+   ```
+
+4. 按照排名范围删除元素
+
+   ```
+   ZREMRANGEBYRANK key start stop
+   ```
+
+5. 按照分数范围删除元素
+
+   ```
+   ZREMRANGEBYSCORE key min max
+   ```
+
+6. 获取元素的排名
+
+   ```
+   ZRANK key member
+   ZREVRANK key member
+   ```
+
+7. 计算有序集合的交集
+
+   ```
+   ZINTERSTORE destination numkeys key [key ...] []
+   ```
+
+## 第2章 进阶
+
+### 2.1 事务
+
+#### 2.1.1 概述
+
+事务，不多解释了，关系型数据库听的太多了，最小的执行单位，一个事务中的命令要么都执行，要么都不执行
+
+redis开启事务的方式
+
+首先使用MULTI命令开启事务
+
+执行redis的其他命令
+
+最后使用EXEC 执行等待执行的事务队列中的所有命令按照发送顺序依次执行
+
+#### 2.1.2 错误处理
+
+1. 语法错误，只要有一个错误，其他命令都不会执行
+2. 运行错误，错误的命令不会执行，但是其他命令会继续执行
+
+### 2.2 生存时间
+
+#### 2.2.1 命令介绍
+
+使用EXPIRE命令设置一个键的生存时间，到时间后Redis会自动删除它
+
+```
+EXPIRE key seconds
+```
+
+使用TTL命令，查看一个键还有多久的时间会删除，返回值是剩余时间
+
+没有为键设置生存时间的 同样会返回-1
+
+使用PERSIST 命令取消键的生存时间设置
+
+使用SET或GETSET命令为键赋值也会同时清除键的生存时间
+
