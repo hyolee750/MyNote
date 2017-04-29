@@ -1,4 +1,4 @@
-### 在MSI GE72上安装Win10和Ubuntu 16.04 双系统
+### 1.在MSI GE72上安装Win10和Ubuntu 16.04 双系统
 
 之前一直在尝试安装Ubuntu系统，但是一直卡在启动页面，进不去系统，让我非常的头疼，但是昨天，终于成功的安装了Ubuntu，现在简要的记录一下成功的方法
 
@@ -10,3 +10,25 @@
 6. 然后就能正常安装了，安装完成以后，开机进入deepin的系统选择界面时，继续按e，里边还会藏着一个quiet splash，同样替换，修改完成以后Ctrl + X或F10，使之生效。
 7. 然后就能正常进入系统了，进入系统以后，`sudo gedit /etc/default/grub` 里边还有quiet splash，同样替换
 8. 使用`sudo update-grub`生成新的配置文件
+
+### 2. 安装Ubuntu16.04后不能调整屏幕亮度
+
+####　测试
+
+1. 首先，为了测试这是一个解决办法，重启系统，在GRUB2启动菜单，按`e`编辑配置文件，滚动到`linux` 或`linuxefi`行
+  - 删除`nomodeset`参数
+  - 添加`apci_backlight=vendor`参数
+  - 添加 `nouveau.modeset=0 rd.driver.blacklist=nouveau`参数
+2. 按F10启动系统，你应该能够使用键盘来调整屏幕的亮度了
+
+#### 永久修复
+
+1. 作为root用户，编辑`/etc/default/grub`配置文件
+2. 修改`GRUB_CODLINE_LINE`行
+  - 删除`nomodeset`参数
+  - 添加`apci_backlight=vendor nouveau.modeset=0 rd.driver.blacklist=nouveau`
+3. 使用`sudo update-grub`使配置生效
+4. 使用`sudo reboot`重启系统
+5. 按`FN+UP`或`FN+DOWN`来调整屏幕亮度 是否成功
+
+
