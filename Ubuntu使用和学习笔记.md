@@ -24,7 +24,7 @@
 #### 永久修复
 
 1. 作为root用户，编辑`/etc/default/grub`配置文件
-2. 修改`GRUB_CODLINE_LINE`行
+2. 修改`GRUB_CMDLINE_LINE`行
   - 删除`nomodeset`参数
   - 添加`apci_backlight=vendor nouveau.modeset=0 rd.driver.blacklist=nouveau`
 3. 使用`sudo update-grub`使配置生效
