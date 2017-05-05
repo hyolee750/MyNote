@@ -16,19 +16,42 @@
 ####　测试
 
 1. 首先，为了测试这是一个解决办法，重启系统，在GRUB2启动菜单，按`e`编辑配置文件，滚动到`linux` 或`linuxefi`行
-  - 删除`nomodeset`参数
-  - 添加`apci_backlight=vendor`参数
-  - 添加 `nouveau.modeset=0 rd.driver.blacklist=nouveau`参数
+- 删除`nomodeset`参数
+- 添加`apci_backlight=vendor`参数
+    - 添加 `nouveau.modeset=0 rd.driver.blacklist=nouveau`参数
 2. 按F10启动系统，你应该能够使用键盘来调整屏幕的亮度了
 
 #### 永久修复
 
 1. 作为root用户，编辑`/etc/default/grub`配置文件
 2. 修改`GRUB_CMDLINE_LINE`行
-  - 删除`nomodeset`参数
-  - 添加`apci_backlight=vendor nouveau.modeset=0 rd.driver.blacklist=nouveau`
+- 删除`nomodeset`参数
+- 添加`apci_backlight=vendor nouveau.modeset=0 rd.driver.blacklist=nouveau`
 3. 使用`sudo update-grub`使配置生效
 4. 使用`sudo reboot`重启系统
 5. 按`FN+UP`或`FN+DOWN`来调整屏幕亮度 是否成功
 
 
+### 3. 卸载compiz之后，不显示导航栏和左侧菜单，只显示背景图片
+
+只需要重新启动Unity插件即可
+
+1. 使用`Ctrl+Alt+T` 打开终端，如果该方法不工作，你也可以试着在桌面点击右键，然后选择`打开终端` ，如果还不行，使用`Ctrl+Alt+F1` 打开终端并登录
+
+2. 安装`compizconfig-settings-manager`
+
+   ```shell
+   sudo apt-get install compizconfig-settings-manager
+   ```
+
+3. 然后运行下面的命令
+
+   ```shell
+   DISPLAY=:0 ccsm &
+   ```
+
+   第一部分告诉终端你想要加载的是哪个显示
+
+4. 找到`Unity Plugin`并启用
+
+5. 这样就可以解决不显示导航栏和左侧菜单的问题了
