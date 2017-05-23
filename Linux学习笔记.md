@@ -670,6 +670,55 @@ locate [选项][参数]
    locate fdisk
    ```
 
+#### `tar`命令用来进行文件的压缩和提取
+
+1. 创建一个压缩文件
+```shell
+tar -cvf /tmp/home.tar /home
+```
+- 首先你需要表明你想要使用`tar`命令做什么，假如你想创建一个压缩文件，使用`c`代表create
+- 使用选项`v`显示详细信息
+- 接下来，你需要定义`tar`命令发送它的标准输出到什么地方。使用`f`定义输出应该被写到的文件或设备
+- 最后一部分定义了你想要把什么放入到压缩文件中
+
+语法
+```shell
+tar {create | extract} [options] <destination file> <source files or directories>
+```
+
+`tar`有两个选项来压缩档案文件
+- `z`:使用`gzip`来压缩文件，这是最流行的压缩工具
+- `j`:使用`bzip2`来压缩文件
+
+示例：
+```shell
+tar -czvf home.tar.gz /home
+```
+
+2. 解压缩文件
+
+```shell
+tar -xvf /file.tar # 提取file.tar的内容到当前目录
+```
+
+```shell
+tar -zxvf /file.tar.gz #提取被压缩的文件file.tar到当前目录
+```
+
+```shell
+tar -xvf /file.tar C /somedir #提取/file.tar的内容到指定目录
+```shell
+
+常用的选项
+
+- `-c`:创建一个压缩文件
+- `-v`:显示详细信息
+- `-f`:定义输出文件的名称
+- `-C`:定义tar命令标准输出的目录
+- `-x`:解压缩文件
+- `-z`:使用`gzip`压缩
+- `-j`:使用`bzip2`压缩
+
 
 
 ### 命令，选项和参数
