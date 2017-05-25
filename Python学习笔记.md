@@ -295,3 +295,221 @@ Python支持常见的算术操作符
 通过input()和print()函数，可以实现控制台I/O
 
 Python提供了广泛的标准库，在使用import语句导入
+
+### 4. Python对象类型
+
+Python程序可以分成模块，语句，表达式和对象
+
+1. 程序由模块组成
+2. 模块包含语句
+3. 语句包含表达式
+4. 表达式创建和处理对象
+
+#### 4.1 Python的核心数据类型
+
+| 对象类型   | 示例                                       |
+| ------ | ---------------------------------------- |
+| 数字     | `1234`,`3.1415`，`3+4j`,`ob111`,`Decimal()`,`Fraction()` |
+| 字符串    | `'spam'`,`"bob's"`,`b'a\x01c'`,`u'sp\xc4m'` |
+| 列表     | `[1,[2,'three'],4.5]`,`list(range(10))`  |
+| 字典     | `{'food':'spam','taste':'yum'}`,`dict(hours=10)` |
+| 元组     | `(1,'spam',4,'U')`,`tuple('spam')`,`namedtuple` |
+| 文件     | `open('eggs.txt')`,`open(r'c:\ham.bin','wb')` |
+| 集合     | `set(a,b,c)`,`{'a','b','c'}`             |
+| 其他核心类型 | `Boolean`,`types`,`None`                 |
+| 程序单元类型 | `Function`,`module`,`class`              |
+| 相关实现类型 | 已编译的代码，栈记录                               |
+
+##### 4.1.1 数字
+
+模块是额外的工具包，我们可以导入使用
+
+```python
+import math
+math.pi
+math.sqrt(85)
+```
+
+```python
+import random
+random.random()
+random.choice([1,2,3,4])
+```
+
+### 5. 数值类型
+
+#### 5.1 数值类型基础
+
+包括以下类型：
+
+- 整型和浮点型对象
+- 复杂数值对象
+- Decimal：固定精度对象
+- Fraction：分数
+- Set：使用数值操作符的集合
+- Boolean：True和False
+- 内置函数和模块：`round`，`math`,`random`等等
+- 表达式
+- 第三方扩展
+
+十六进制以`0x`或`0X`开头，后接十六进制字符串(0-9和A-F)
+
+八进制以`0o`或`0O`开头，后接八进制字符串(0-7)
+
+二进制以`0b`或`0B`开头，后接二进制字符串(0-1)
+
+`hex(I)` 将十进制的数值转换成十六进制
+
+`oct(I)`将十进制的数值转换成八进制
+
+`bin(I)`将十进制的数值转换成二进制
+
+`int(str,base)`将字符串按照指定进制进行转换
+
+复杂类型的数值也可以通过`complext(real,imag)`创建
+
+#### 5.2 内置数值工具
+
+表达式操作符
+
+```python
++,-,×,/，>>,**,&
+```
+
+内置的算术函数
+
+```python
+pow,abs,round,int,hex,bin
+```
+
+工具类模块
+
+```python
+random,math
+```
+
+#### 字符串的格式化
+
+使用位置
+
+```python
+>>> template = '{0}, {1} and {2}'
+>>> template.format('spam', 'ham', 'eggs')
+'spam, ham and eggs'
+```
+
+使用关键字
+
+```python
+>>> template = '{motto}, {pork} and {food}'
+>>> template.format(motto='spam', pork='ham', food='eggs')
+'spam, ham and eggs'
+```
+
+同时使用位置和关键字
+
+```python
+>>> template = '{motto}, {0} and {food}'
+>>> template.format('ham', motto='spam', food='eggs')
+'spam, ham and eggs'
+```
+
+使用相对位置
+
+```python
+>>> template = '{}, {} and {}'
+>>> template.format('spam', 'ham', 'eggs')
+'spam, ham and eggs'
+```
+
+使用表达式
+
+```python
+>> template = '%s, %s and %s'
+>>> template % ('spam', 'ham', 'eggs')
+'spam, ham and eggs'
+```
+
+```python
+>>> template = '%(motto)s, %(pork)s and %(food)s'
+>>> template % dict(motto='spam', pork='ham', food='eggs')
+'spam, ham and eggs'
+```
+
+`%s`可以使用任意对象类型
+
+```python
+>>> '{motto}, {0} and {food}'.format(42, motto=3.14, food=[1, 2])
+'3.14, 42 and [1, 2]'
+```
+
+##### 添加键，属性和偏移量
+
+使用`[]`来引用字典的键
+
+使用`.`来调用对象的属性
+
+```python
+>>> import sys
+>>> 'My {1[kind]} runs {0.platform}'.format(sys, {'kind': 'laptop'})
+'My laptop runs win32'
+```
+
+```python
+>>> 'My {map[kind]} runs {sys.platform}'.format(sys=sys, map={'kind': 'laptop'})
+'My laptop runs win32'
+```
+
+#### 元组
+
+元组是不可变的，由`()`构成。而不是`[]`
+
+- *任意对象的有序集合*
+- *按索引访问*
+- *属于不可变序列目录*
+- *固定长度，复杂的，任意嵌套的*
+- *对象引用的数组*
+
+```python
+()		# 一个空元组
+T = (0,) # 包含一个元素的元组
+T = (0,'Ni',1.2,3) # 4个元素的元组
+T = 0,'Ni',1.2,3 # 另一种4个元素的元组
+T = ('Bob',('dev','mgr')) # 嵌套的元组
+T = tuple('spam') 
+T[i] # index
+T[i][j] # index of index
+T[i:j] # slice
+len(T) # length
+T1+T2 # 串联
+T * 3 # 重复
+for x in T:print(x) # 迭代
+'spam' in T # 测试成员关系
+[x**2 for x in T] # 表达式
+T.index('Ni') # 'Ni'第一次出现的位置
+T.count('Ni') # ‘Ni’ 的个数
+namedtuple('Emp',['name','jobs'])
+```
+
+#### 文件
+
+内置`open`函数创建了一个Python文件对象，
+
+常用的文件操作
+
+- `output = open(r'C:\spam','w')` 写文件 `'w'` 意味着写
+- `input = open('data','r') 创建读文件`
+- `input = open('data') 
+- `aString = input.read()`读取整个文件到一个字符串
+- `aString = input.read(N)`读取N个字符或字节到字符串
+- `aString = input.readline()` 读取一行到字符串
+- `aList = input.readlines()` 读取整个文件到一个行的列表
+- `output.write(aString)` 写字符串到文件
+- `output.writelines(aList)` 将所有的行写到文件
+- `output.close()` 手动关闭
+- `output.flush()` 刷新缓存到磁盘
+- `anyFile.seek(N)` 改变文件位置到N进行下次操作
+- `for line in open('data'): use line` 文文件迭代器一行一行读取
+- `open('f.txt', encoding='latin-1')`
+- `open('f.bin', 'rb')`
+
