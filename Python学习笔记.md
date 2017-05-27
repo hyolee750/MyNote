@@ -546,3 +546,34 @@ open(file,mode='r',buffering=-1,encoding=None,errors=None,newline=None,closefd=T
 缓冲是一个可选的整数用来设置缓冲策略
 
 传递0 将缓冲关闭(只允许在二进制模式)，1 选择行缓冲(只能在文本模式使用)，大于1的整数声明一个固定大小缓冲块的大小，如果没有给定缓冲参数，默认的缓冲策略
+
+#### 函数相关的语句和表达式
+
+- 调用表达式 `myfunc('spam','eggs',meat=ham,*rest)`
+- `def` 定义函数
+- `return` 返回数据
+- `global` 全局变量
+- `nonlocal` 非本地变量
+- `yield` 产生数据
+- `lambda` lambda表达式 `func = [lambda:x:x**2,lambda:x:x**3]`
+
+函数的两个作用：
+1. 最大化代码重用，最小化代码冗余
+2. 过程分解
+
+`def`的作用：
+1. `def`是可执行的代码
+2. `def`创建了一个对象，然后给它赋值了一个名字
+3. `lambda`创建了一个对象，当会把它当做结果返回
+4. `return`发送结果对象给调用者
+5. `yield` 发送结果对象给调用者，但是会记住结果在何处离开
+6. `global`声明了模块级别的变量
+
+##### `def`语句
+
+语法格式：
+```python
+def name(arg1,arg2,... argN):
+    statements
+```
+
