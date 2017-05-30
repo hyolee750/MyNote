@@ -1320,3 +1320,304 @@ Python有三个内置的函数被用来设计成装饰方法
 `property`，`classmethod`，`staticmethod`
 
 另外一个常用的装饰器就是`functools.wraps`
+
+## 第四部分 面向对象
+
+### 9. 一个Python化的对象
+
+多亏了Python的数据模型，用户自定义的类型可以表现的像内置类型一样自然
+
+如何实现在很多不同类型的Python对象中常见的特殊方法
+
+将会学习到以下内容：
+
+- 支持内置函数可以产生可选的对象表述，如`repr()`,`bytes()`等等
+- 实现一个可选的构造器作为一个类的方法
+- 使用内置函数`format()`和`str.format()`来扩展格式化
+- 提供属性的只读访问
+- 使对象可哈希的用于set和dict键
+- 使用`__slots__`节约内存
+
+讨论两个概念性的主题：
+
+1. 怎么和什么时候使用`@classmethod`和`@staticmethod`装饰器
+2. Python中的私有和受保护的属性的用法，约定和限制
+
+#### 对象表述
+
+Python有两种方式获取对象的字符串表述
+
+- `repr()` 返回对象的一个字符串表述，开发者想要看到的
+- `str()`返回对象的一个字符串表述，用户想要看到的
+
+我们可以实现特殊方法`__repr__`和`__str__`来支持`repr()`和`str()`
+
+还有两个额外的特殊方法支持可选的对象表述`__bytes__`和`__format__`
+
+`__bytes__`类似`__str__`，由`bytes()`调用来获取对象的表述作为一个字节序列
+
+对于`__format__`来说，内置的`format()`和`str.format()`方法都会调用它来获取对象使用特殊的格式化代码的字符串显示
+
+#### Vector类的终极版
+
+```python
+from array import array
+import math
+
+
+class Vector2d:
+    typecode = 'd'
+
+    def __init__(self, x, y):
+        self.x = float(x)
+        self.y = float(y)
+
+    def __iter__(self):
+        return (i for i in (self.x, self.y))
+
+    def __repr__(self):
+        class_name = type(self).__name__
+        return '{}({!r},{!r})'.format(class_name, *self)
+
+    def __str__(self):
+        return str(tuple(self))
+
+    def __bytes__(self):
+        return bytes([ord(self.typecode)] + bytes(array(self.typecode, self)))
+
+    def __eq__(self, other):
+        return tuple(self) == tuple(other)
+
+    def __abs__(self):
+        return math.hypot(self.x, self.y)
+
+    def __bool__(self):
+        return bool(abs(self))
+```
+
+#### 	一个可选的构造器
+
+因为我们可以导出一个Vector2d作为字节，自然的，我们需要一个方法从一个二进制序列导入Vector2d
+
+可以使用`array.array`的类方法`.frombytes`完成该目的
+
+```python
+@classmethod
+def frombytes(cls, octes):
+    typecode = chr(octes[0])
+    memv = memoryview(octes[1:]).cast(typecode)
+    return cls(*memv)
+```
+
+1. 类方法通过`classmethod`装饰器被修改了
+2. 没有`self`参数，相反，类本身被作为cls参数传递
+3. 从第一个字节读取typecode
+4. 从二进制序列创建了一个`memoryview`，并使用typecode进行转换
+5. 解包`memoryview`的结果到构造器的参数对
+
+#### classmethod和staticmethod
+
+`classmethod`定义了在类上而不是在类的实例上操作的方法
+
+`classmethod`改变了方法被调用的方式，所以它接收类本身作为第一个参数，而不是一个类的实例
+
+它最常见的用法就是构造可选的构造函数
+
+相反，`staticmethod`装饰器改变一个方法，以便它接收非特殊的第一个参数。本质上，一个静态方法就像一个普通的函数，碰巧写在class体内，而不是被定义在模块级别
+
+```python
+class Demo:
+	@classmethod
+	def klassmeth(*args):
+		return args #
+	@staticmethod
+	def statmeth(*args):
+		return args #
+>>> Demo.klassmeth() #
+(<class '__main__.Demo'>,)
+>>> Demo.klassmeth('spam')
+(<class '__main__.Demo'>, 'spam')
+>>> Demo.statmeth()
+()
+>>> Demo.statmeth('spam')
+('spam',)
+```
+
+#### 格式化的显示
+
+`format()`内置函数和`str.format()`方法会委托每个类型的实际格式化方法通过调用他们的`__format__(format_spec)`方法
+
+```python
+>>> brl = 1/2.43 # BRL to USD currency conversion rate
+>>> brl
+0.4115226337448559
+>>> format(brl, '0.4f') #
+'0.4115'
+>>> '1 BRL = {rate:0.2f} USD'.format(rate=brl)
+'1 BRL = 0.41 USD'
+```
+
+```python
+>>> from datetime import datetime
+>>> now = datetime.now()
+>>> format(now, '%H:%M:%S')
+'18:49:05'
+>>> "It's now {:%I:%M %p}".format(now)
+"It's now 06:49 PM"
+```
+
+#### 一个可哈希的Vector2d
+
+到目前为止，我们的Vector2d是不可哈希的，所以我们不能把他们放到集合中
+
+为了使Vector2d可哈希的，我们必须实现`__hash__`方法，同时，`__eq__`也是必须的，同时，我们也可以使Vector2d的实例是不可变的
+
+我们可以标记x和y组件为只读的属性
+
+```python
+def __init__(self, x, y):
+    self.__x = float(x)
+    self.__y = float(y)
+
+    @property
+    def x(self):
+        return self.__x
+
+    @property
+    def y(self):
+        return self.__y
+```
+
+1. 使用两个下划线来使一个属性为私有的
+2. `@property`装饰器标记了一个属性的get方法
+
+现在我们的Vector2d是不可变的了，我们可以实现`__hash__`方法
+
+```python
+def __hash__(self):
+    return hash(self.x) ^ hash(self.y)
+```
+
+#### 私有的和受保护的属性
+
+如果你命令一个实例的属性以两个下划线开头，Python会在实例的`__dict__`中使用类的前缀来保存名称
+
+```python
+>>> v1 = Vector2d(3, 4)
+>>> v1.__dict__
+{'_Vector2d__y': 4.0, '_Vector2d__x': 3.0}
+>>> v1._Vector2d__x
+3.0
+```
+
+单下划线对Python解释器来说没有任何意义，但是它是在Python程序员中强烈的约束，你不应该从一个类的外部来访问这样的属性
+
+属性由一个下划线开头的，叫做受保护的
+
+#### 使用`__slots__`属性节约内存
+
+默认情况下，Python存储实例属性在每个实例的dict中
+
+使用`__slots__`属性，可以让解释器存储实例的属性在一个元组也不是字典
+
+为了定义`__slot__`，你使用该名称创建了一个类属性，然后把它赋值给一个可迭代对象str，使用实例属性的身份
+
+```python
+__slots__ = ('__x', '__y')
+```
+
+通过在类中定义`__slots__`，你告诉解释器，所有的实例属性都在这个类中，Python会存储他们在每一个实例的一个类似元组的结构中，避免了每个实例`__dict__`的内存负载
+
+##### 使用`__slots__`的问题
+
+总结以下：`__slots__`可能提供非常大的内存节省如果适当的使用，但是还有一些问题：
+
+- 你必须记得在每一个子类重新声明`__slots__`，因为继承的属性会被解释器忽略
+- 实例只能够有列在`__slots__`里面的属性，除非你包括`__dict__`到`__slots__`里
+- 实例不能是弱引用的目标，除非你记得把`__weakref__`包括到`__slots__`里
+
+##### 覆盖类的属性
+
+类属性可以被用来作为实例属性的默认值
+
+如果你想要改变一个类属性，你必须在类上直接设置，而不能通过实例
+
+类属性是公共的，他们可以被子类继承。所以可以使用子类的形式去覆盖类的属性
+
+#### 章节总结
+
+这一章主要演示了特殊方法的用法，和构造一个良好的Python化的类的约束
+
+**简单比复杂要好**
+
+## 第五部分 控制流
+
+### 15. 上下文管理器和else代码块
+
+在这一章，我们将会讨论控制流在其他语言不太常用的特性
+
+- `with`语句和上下文管理器
+- 在`for`.`while`,`try`语句中的`else`代码块
+
+
+#### 做这个然后再做那个：除了if之外的else代码块
+
+规则
+
+- `for`：`else`只会在for循环运行完毕后才会运行，不包括使用`break`终止循环
+- `while`:`else`代码块只会在while循环退出后才会运行，不包括使用`break`终止循环
+- `try`：`else`代码块只会在try代码块没有异常产生的时候运行
+
+和这些语句一起使用else，会使代码更容易阅读，解决了控制流标记或增加额外if语句的麻烦
+
+```python
+for item in my_list:
+    if item.flavor == 'banana':
+        break
+else:
+    raise ValueError('No banana flavor found!')
+```
+
+#### 上下文管理器和代码块
+
+上下文管理器存在用来控制一个`with`语句
+
+`with`语句设计用来简化`try/finally`模式，保证了一些操作会在代码块之后执行，即使代码块因为异常被终止执行了
+
+上下文管理器协议包含了`__enter__`和`__exit__`方法
+
+在with的开始，上下文管理器调用`__enter__`方法
+
+在with的结束，上下文管理器调用`__exit__`方法
+
+最常见的例子就是确保一个文件对象被关闭
+
+```python
+>>> with open('mirror.py') as fp: #
+...
+src = fp.read(60) #
+...
+>>> len(src)
+60
+>>> fp #
+<_io.TextIOWrapper name='mirror.py' mode='r' encoding='UTF-8'>
+>>> fp.closed, fp.encoding #
+(True, 'UTF-8')
+>>> fp.read(60) #
+Traceback (most recent call last):
+File "<stdin>", line 1, in <module>
+ValueError: I/O operation on closed file.
+```
+
+解决pip无法安装的问题
+
+`python-pip` is in the universe repositories, therefore use the steps below:
+
+```shell
+sudo apt-get install software-properties-common
+sudo apt-add-repository universe
+sudo apt-get update
+sudo apt-get install python-pip
+```
+
+
