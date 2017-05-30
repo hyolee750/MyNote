@@ -938,13 +938,58 @@ class StrKeyDict0(dict):
 
 #### 集合理论
 
+`set`是唯一对象的集合
 
+```python
+>>> l = ['spam', 'spam', 'eggs', 'spam']
+>>> set(l)
+{'eggs', 'spam'}
+>>> list(set(l))
+['eggs', 'spam']
+```
+
+`set`的元素必须是可哈希的，`set`类型不是可哈希的，但是`frozenset`是可哈希的
+
+除了保证唯一性，`set`类型实现了基本的set操作
 
 ##### `set`文本
 
 ##### `set`解析
 
+```python
+>>> from unicodedata import name
+>>> {chr(i) for i in range(32, 256) if 'SIGN' in name(chr(i),'')}
+{'§', '=', '¢', '#', '¤', '<', '¥', 'μ', '×', '$', '¶', '£', '©',
+'°', '+', '÷', '±', '>', '¬', '®', '%'}
+```
+
 ##### 集合操作
+
+- s & z  	s和z的交集
+- z & s        反转&操作符
+- s &= z
+- s|z
+- s |=z
+- s-z
+- s-=z
+- s^z
+- s^=z
+- e in s
+- s<=z
+- s<z
+- s>=z
+- s>z
+
+s.add(e) ● Add element e to s
+s.clear() ● Remove all elements of s
+s.copy() ●●
+s.discard(e) ●
+Shallow copy of s
+Remove element e from s if it is present
+s.__iter__() ● ● Get iterator over s
+s.__len__() ● ● len(s)
+s.pop() ● Remove and return an element from s , raising KeyError if s is empty
+s.remove(e) ● Remove element e from s , raising KeyError if e not in s
 
 #### `dict`和`set`在引擎罩下
 
@@ -970,5 +1015,308 @@ class StrKeyDict0(dict):
 
 #### 理解编码和解码问题
 
-##### 
+##### 复制UnicodeEncodeError
 
+##### 复制UnicodeDecodeError
+
+##### 加载模块时出现未期望的编码语法错误
+
+##### 怎么发现字节序列的编码
+
+##### BOM: A Useful Gremlin
+
+#### 处理文本文件
+
+##### 编码默认
+
+## 第三部分 函数作为对象
+
+### 5. 一等函数
+
+#### 将函数作为对象看待
+
+#### 高阶函数
+
+##### 使用`map`，`filter`和`reduce`的替换
+
+#### 匿名函数
+
+#### 7种调用对象的方法
+
+调用操作符，如`()`	
+
+测试一个对象是否是可调用的，使用`callable()`内置函数
+
+- 用户定义的函数
+
+  由`def`语句或`lambda`表达式创建
+
+- 内置函数
+
+  以C实现的函数，如`len`或`time.strfttime`
+
+- 内置方法
+
+  以C实现的方法，如`dict.get`
+
+- 方法
+
+  在一个类内定义的函数
+
+- 类
+
+- 类实例
+
+- 生成器函数
+
+#### 用户自定义调用类型
+
+不仅Python的函数是真的对象，而且任意的Python对象也可以行为像函数一样，实现了一个`__call__`实例方法即可
+
+#### 函数内省
+
+函数对象除了`__doc__`之外还由多个属性，使用`dir`函数
+
+```python
+>>> dir(factorial)
+['__annotations__', '__call__', '__class__', '__closure__', '__code__',
+'__defaults__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__','__format__', '__ge__', '__get__', '__getattribute__', '__globals__',
+'__gt__', '__hash__', '__init__', '__kwdefaults__', '__le__', '__lt__',
+'__module__', '__name__', '__ne__', '__new__', '__qualname__', '__reduce__',
+'__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__',
+'__subclasshook__']
+```
+
+#### 从位置到关键字参数
+
+使用`*`解析迭代对象，使用`**`解析映射类型到单个参数当我们调用一个函数
+
+```python
+def tag(name, *content, cls=None, **attrs):
+    """Generate one or more HTML tags"""
+    if cls is not None:
+        attrs['class'] = cls
+    if attrs:
+        attr_str = ''.join(' %s="%s"' % (attr, value) for attr, value in sorted(attrs.items()))
+    else:
+        attr_str = ''
+    if content:
+        return '\n'.join('<%s%s>%s</%s>' % (name, attr_str, c, name) for c in content)
+    else:
+        return '<%s%s />' % (name, attr_str)
+```
+
+```python
+>>> tag('br')
+'<br />'
+>>> tag('p', 'hello')
+'<p>hello</p>'
+>>> print(tag('p', 'hello', 'world'))
+<p>hello</p>
+<p>world</p>
+>>> tag('p', 'hello', id=33)
+'<p id="33">hello</p>'
+>>> print(tag('p', 'hello', 'world', cls='sidebar'))
+<p class="sidebar">hello</p>
+<p class="sidebar">world</p>
+>>> tag(content='testing', name="img")
+'<img content="testing" />'
+>>> my_tag = {'name': 'img', 'title': 'Sunset Boulevard',
+...
+'src': 'sunset.jpg', 'cls': 'framed'}
+>>> tag(**my_tag)
+'<img class="framed" src="sunset.jpg" title="Sunset Boulevard" />'
+```
+
+1. 单个位置参数产生一个带有名称的对象
+2. 任何位于第一个参数之后的参数都会被`*content`捕获，作为一个元组
+3. 关键字参数没有显示的命名，被`**attrs`捕获作为dict
+4. `cls`参数只能被作为关键字参数传递
+5. 甚至第一个位置参数都可以被作为一个关键字传递
+6. 使用`**`作为my_tag dict前缀，所有它的元素都会分割成参数，然后绑定到命名参数
+7. 关键字参数不需要默认值
+
+#### 接收参数的信息
+
+参数的类型
+
+1. POSITIONAL_OR_KEYWORD
+
+   参数可以被作为位置或关键字参数传递，大多数的Python函数参数都是这种类型的
+
+2. VAR_POSITIONAL
+
+   一个位置参数的元组
+
+3. VAR_KEYWORD
+
+   一个关键字参数的字典
+
+4. KEYWORD_ONLY
+
+   一个只能是关键字的参数
+
+5. POSITIONAL_ONLY
+
+   一个只能是位置的参数
+
+#### 函数注解
+
+Python3 提供了语法可以负载元数据到一个函数参数的声明和返回值
+
+#### 函数式编程的包
+
+##### 模块操作符
+
+`operator`模块提供了很多算术操作符的等价函数
+
+`attrgetter`从它的操作符返回一个可调用对象来抓取给定的属性
+
+```python
+f = attrgetter('name') # 调用f(r)返回r.name
+```
+
+`itemgetter`从它的操作符返回一个可调用对象来抓取给定的item
+
+```python
+f = itemgetter(2) # 调用f(r) 返回r[2]
+```
+
+`methodcaller`从它的操作符返回一个可调用对象调用给定的方法
+
+```python
+f = methodcaller('name'), #调用f(r) 返回r.name()
+```
+
+##### 使用`functools.partial`冰冻参数
+
+`functools`模块带来了很多好用的高阶函数，最出名的可能就是`reduce`函数，另外一个最有用的函数是`partial`和它的变种`partialmethod`
+
+`functools.partial`是一个高阶函数，允许一个函数的局部应用
+
+给定一个函数，部分应用程序会产生一些新的可调用函数参数的原始功能固定。这对于适应所需的功能是有用的API的一个或多个参数，需要具有较少参数的回调
+
+```python
+>>> from operator import mul
+>>> from functools import partial
+>>> triple = partial(mul, 3)
+>>> triple(7)
+21
+>>> list(map(triple, range(1, 10)))
+[3, 6, 9, 12, 15, 18, 21, 24, 27]
+```
+
+`partial`采用一个函数作为第一个参数，后面跟着任意的位置数字或关键字参数来进行绑定
+
+#### 章节总结
+
+这一章的主要目标就是探索Python头等函数的特性
+
+你可以赋值函数到一个变量，将他们作为其他函数的变量，将他们存储到数据结构，和访问函数的属性
+
+Python的函数和他们的注解，有很多丰富的属性集可以使用`inspect`模块进行读取
+
+最后，我们概述了一些来自`operator`模块和`functools.partial`的函数
+
+可以按照需求最小化函数编程的能力
+
+#### 进一步阅读
+
+### 7. 函数装饰器和闭包
+
+函数装饰器可以让我们在源代码上标记函数来以某种方式增强他们的行为
+
+这一章的目标就是解释清楚函数装饰器是如何工作的
+
+- Python是如何封装装饰器语法的
+- Python是如何判断一个变量是本地的
+- 为什么闭包会存在，它们是如何工作的
+- `noncal`可以解决什么样的问题
+
+#### 装饰器101
+
+一个装饰器是一个可调用的函数，将另外一个函数作为参数
+
+装饰器可以使用被装饰的函数执行一些处理。用另外一个函数或可调用对象返回它或替换它
+
+装饰器的语法
+
+```python
+@decorate
+def target():
+	print('running target()')
+```
+
+总结一下：
+
+1. 装饰器由能力使用另外一个不同的函数来替换被装饰的函数
+2. 当一个模块被加载，装饰器函数会立即执行
+
+#### 什么时候Python执行装饰器
+
+装饰器一个关键的特征就是他们在装饰函数被定义之后立即运行
+
+重点强调：只要模块被导入，函数装饰器就会立刻被执行，但是被装饰的函数只会在它们被显式调用的时候才会运行
+
+#### 使用装饰器增强策略模式
+
+#### 变量范围规则
+
+#### 闭包
+
+总结：闭包是一个函数，当函数定义时，保留自由变量的绑定，当函数被调用时，可以被使用，定义的作用域就不再可用
+
+#### `nonlocal`声明
+
+`nonlocal`声明，可以标记一个变量作为自由变量，当它在一个函数内赋值了新的值
+
+如果一个新的值被赋予了`nonlocal`变量，存储在闭包中的绑定就会被改变
+
+```python
+def make_averager():
+    count = 0
+    total = 0
+
+    def averager(new_value):
+        nonlocal count, total
+        count += 1
+        total += new_value
+        return total / count
+
+    return averager
+```
+
+#### 实现一个简单的装饰器
+
+```python
+import time
+import functools
+
+
+def clock(func):
+    @functools.wraps(func)
+    def clocked(*args, **kwargs):
+        t0 = time.time()
+        result = func(*args, **kwargs)
+        elapsed = time.time() - t0
+        name = func.__name__
+        arg_list = []
+        if args:
+            arg_list.append(', '.join(repr(arg) for arg in args))
+        if kwargs:
+            pairs = ['%s=%r' % (k, w) for k, w in sorted(kwargs.items())]
+            arg_list.append(', '.join(pairs))
+        arg_str = ', '.join(arg_list)
+        print('[%0.8fs] %s(%s) -> %r ' % (elapsed, name, arg_str, result))
+        return result
+
+    return clocked
+```
+
+#### 标准库中的装饰器
+
+Python有三个内置的函数被用来设计成装饰方法
+
+`property`，`classmethod`，`staticmethod`
+
+另外一个常用的装饰器就是`functools.wraps`
