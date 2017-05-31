@@ -1005,19 +1005,151 @@ s.remove(e) ● Remove element e from s , raising KeyError if e not in s
 
 ### 4. 文本VS字节
 
+在这一章，我们将会学习到以下主题
+
+- 字符，代码点，字节表述
+- 二进制序列唯一的特性：`bytes`,`bytearray`和`memoryview`
+- 全Unicode加密和遗留的字符集合
+- 避免和处理编码错误
+- 处理文件的最佳实践
+- 默认编码的陷阱和标准I/O问题
+- 使用正常化安全的比较Unicode文本
+- 用于正常化，折叠和强力去离子的工具函数
+- 正确的使用`locale`和PyUCA库排序Unicode文本
+- Unicode数据库的字符元数据
+- 双模式API处理`str`和`bytes`
+
 #### 字符问题
+
+- 一个字符的身份是它的代码点，是一个从0到111411的数字
+- 代表一个字符的实际字节取决于使用的编码
+
+```python
+>>> s = 'café'
+>>> len(s) #
+4
+>>> b = s.encode('utf8')
+>>> b
+b'caf\xc3\xa9' #
+>>> len(b) #
+5
+>>> b.decode('utf8')
+'café'
+```
+
+1. 字符串`café`有4个Unicode字符
+2. 使用UTF-8字符集编码str到bytes
+3. 字节文本以b开头
+4. 字节b由5个字节
+5. 使用UTF-8字符集解码bytes到str
 
 #### 字节基础
 
+不可变的`bytes`类型和可变的`bytearray`类型
+
+在bytes或bytearray中的每个项都是一个从0到255的数字
+
+一个二进制序列的切片总是产生同等类型的二进制序列
+
+三种不同的显示类型被使用，取决于每个字节的值
+
+- 对每个在可打印的ASCII范围内的字节，字符本身被使用
+- 对于相应的tab，新行，返回和`\`。转义序列`\t`,`\n`,`\r`和`\\`被使用
+- 对于其他类型的字节值，使用一个十六进制的转义序列
+
+二进制序列有一个str没有的类方法，叫`fromhex`。可以构建一个二进制序列
+
+```python
+>>> bytes.fromhex('31 4B CE A9')
+b'1K\xce\xa9'
+```
+
+还有其他方式构建bytes或bytearray实例的方法通过调用他们的构造器使用
+
+- 一个字符串和一个`encoding`关键字参数
+- 一个提供0-255数字的可迭代对象
+- 一个对象实现了缓存协议
+
+```python
+>>> import array
+>>> numbers = array.array('h', [-2, -1, 0, 1, 2])
+>>> octets = bytes(numbers)
+>>> octets
+b'\xfe\xff\xff\xff\x00\x00\x01\x00\x02\x00'
+```
+
+这里可能需要研究以下`array`这个模块的用法
+
+从一个类似缓存的源创建一个bytes或bytearray对象总是复制字节，相反，memoryview对象可以让两个字节数据结构共享内存
+
+从二进制序列提取结构化信息，可以使用`struct`模块
+
 ##### 结构和内存视图
 
-#### 基本的编码和解码
+```python
+import struct
+
+fmt = '<3s3sHH'
+
+with open('1.jpg','rb') as fp:
+    img = memoryview(fp.read())
+
+header = img[:10]
+print(bytes(header))
+print(struct.unpack(fmt, header))
+del header
+del img
+# 打印结果
+(b'\xff\xd8\xff', b'\xe0\x00\x10', 17994, 17993)
+```
+
+注意：切片一个memoryview会返回一个新的memoryview对象，而不是复制字节
+
+#### 基本的编码器和解码器
+
+```python
+>>> for codec in ['latin_1', 'utf_8', 'utf_16']:
+		print(codec, 'El Niño'.encode(codec), sep='\t')
+latin_1 b'El Ni\xf1o'
+utf_8 b'El Ni\xc3\xb1o'
+utf_16 b'\xff\xfeE\x00l\x00 \x00N\x00i\x00\xf1\x00o\x00'
+```
+
+- `latin1 a.k.a. iso8859_1`
+- `cp1252`
+- `cp437`
+- `gb2312`
+- `utf-8`
+- `utf-16le`
 
 #### 理解编码和解码问题
 
+转换str到字节序列可能会抛出`UnicodeEncodeError`错误
+
+读取一个字节序列到字符串可能会抛出`UnicodeDecodeError`错误
+
+加载Python模块也可能会产生一个`SyntaxError`错误，如果源代码的编码不是期望的
+
 ##### 复制UnicodeEncodeError
 
+```python
+>>> city.encode('cp437', errors='ignore')
+b'So Paulo'
+>>> city.encode('cp437', errors='replace')
+b'S?o Paulo'
+>>> city.encode('cp437', errors='xmlcharrefreplace')
+```
+
+在编码的时候使用`errors`关键字来处理可能会出现的编码错误异常
+
 ##### 复制UnicodeDecodeError
+
+```python
+>>> octets.decode('utf_8', errors='replace')
+'Montr�al'
+```
+
+在解码的时候使用`errors`关键字参数来处理可能会出现的解码错误异常
 
 ##### 加载模块时出现未期望的编码语法错误
 
@@ -1027,7 +1159,100 @@ s.remove(e) ● Remove element e from s , raising KeyError if e not in s
 
 #### 处理文本文件
 
+字节应该在输入的时候尽可能早的进行解码
+
 ##### 编码默认
+
+#### 字符串的格式化
+
+使用`str.format()`方法进行字符串格式化，会返回一个新字符串，在新字符串中，原字符串的替换字段会被适当格式化后的参数所代替
+
+如果字段名是简单的整数，就将被作为传递给`str.format()`方法的一个参数的索引位置
+
+替换字段可以使用下面的任意一种语法格式：
+
+- `{field_name}`
+- `{field_name!conversion}`
+- `{field_name:format_specification}`
+- `{field_name!conversion:format_specification}`
+
+```python
+'{who} turned {age} this year'.format(who='She', age=88)
+'The {who} was {0} last week'.format(12, who='boy')
+```
+
+要注意的是，在参数列表中，关键字参数总是在位置参数之后
+
+字段名可以引用集合数据类型，比如列表，在这样的情况下，我们可以包含一个索引来标识特定的数据项
+
+```python
+stock = ['paper', 'envelopes', 'notepads', 'pens', 'paper clips']
+s = 'We have {0[1]} and {0[2]} in stock'.format(stock)
+'We have envelopes and notepads in stock'
+```
+
+##### 转换
+
+重写数据类型的通常行为并强制其提供字符串形式或表象形式也是可能的，这是通过向字段中添加conversion指定符实现的
+
+目前，有3个这样的指定符：
+
+- s 用于强制使用字符串形式
+- r 用于强制使用表象形式
+- a 用于强制使用表象形式，但仅限于ASCII字符
+
+```python
+'{0} {0!s} {0!r} {0!a}'.format(decimal.Decimal(93.4))
+93.4 93.4 Decimal('93.4') Decimal('93.40')
+```
+
+##### 格式规约
+
+整数，浮点数异常字符串的默认格式通常都足以满足要求，但是如果要实现更精确的控制，我们可以通过格式规约很容易滴的实现
+
+语法格式
+
+```python
+： fill align sign # 0 width , .precison type
+```
+
+```python
+>>> s = "The sword of truth"
+>>> "{0}".format(s)
+'The sword of truth'
+>>> "{0:25}".format(s)
+'The sword of truth       '
+>>> "{0:>25}".format(s)
+'       The sword of truth'
+>>> "{0:^25}".format(s)
+'   The sword of truth    '
+>>> "{0:-^25}".format(s)
+'---The sword of truth----'
+>>> "{0:.<25}".format(s)
+'The sword of truth.......'
+>>> "{0:.10}".format(s)
+'The sword '
+```
+
+字符串格式规约是使用冒号引如的，其后跟随可选的字符对，一个填充字符与一个对齐字符`<`用于左对齐，`^`用于中间对齐，`>`用于右对齐，之后跟随的是可选的最小宽度
+
+整数格式规约以冒号开始，其后可以跟随一个可选的字符对，一个填充字符与一个对齐字符，之后跟随的是可选的符号字符，+表示必须输出符号，-标示只输出负数符号，空格标示为正数输出空格，为负数输出符号-，再之后跟随的是可选的最小宽度整数值
+
+也可以使用0引导，以便在对齐时使用0进行填充
+
+用于浮点数的格式规约与用于正数的格式规约是一样的，只是在结尾处由两个差别
+
+在可选的最小宽度后面，通过写一个句点并在其后跟随一个整数，我们可以指定在小数点后跟随的数字个数，我们也可以在结尾处添加一个类型字符
+
+e表示使用小写字母e的指数形式
+
+E表示使用大写字母E的指数形式
+
+f表示标准的浮点形式
+
+g表示通常格式，这与f的作用是相同的
+
+#### 章节总结
 
 ## 第三部分 函数作为对象
 
