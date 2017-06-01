@@ -1845,4 +1845,165 @@ sudo apt-get update
 sudo apt-get install python-pip
 ```
 
+### 17. 使用Future完成并发
+
+#### 示例：使用三种风格下载
+
+为了有效的处理网络IO，你需要并发，
+
+##### 一个顺序下载的脚本
+
+```python
+import os
+import time
+import sys
+
+import requests
+
+POP20_CC = ('CN IN US ID BR PK NG BD RU JP '
+            'MX PH VN ET EG DE IR TR CD FR').split()
+
+BASE_URL = 'https://raw.githubusercontent.com/hyolee750/MyNote/master/flags'
+
+DEST_DIR = 'downloads/'
+
+
+def save_flag(img, filename):
+    path = os.path.join(DEST_DIR, filename)
+    with open(path, 'wb') as fp:
+        fp.write(img)
+
+
+def get_flag(cc):
+    url = '{}/{cc}/{cc}.gif'.format(BASE_URL, cc=cc.lower())
+    resp = requests.get(url)
+    return resp.content
+
+
+def show(text):
+    print(text, end=' ')
+    sys.stdout.flush()
+
+
+def download_many(cc_list):
+    for cc in sorted(cc_list):
+        image = get_flag(cc)
+        show(cc)
+        save_flag(image, cc.lower() + '.gif')
+
+    return len(cc_list)
+
+
+def main(download_many):
+    t0 = time.time()
+    count = download_many(POP20_CC)
+    elasped = time.time() - t0
+    msg = '\n{} flags download in {:.2f}s'
+    print(msg.format(count, elasped))
+
+if __name__ == '__main__':
+    main(download_many)
+```
+
+1. 导入`requests`库，因为它不是标准库的一部分，所以按照约束，在标准库模块之后导入，并用一个空行进行分割
+
+##### 使用`concurrent.futures`下载
+
+`concurrent.futures`包的主要特性就是`ThreadPoolExecutor`和`ProcessPoolExeutor`，实现了一个借口允许你提交可调用的对象执行在不同的线程或进程，相应的，这个类管理了一个内部的工作线程池或进程池，一个将要被执行的任务的队列
+
+```python
+from concurrent import futures
+
+from flags import save_flag, get_flag, show, main
+
+MAX_WORKERS = 20
+
+
+def download_one(cc):
+    img = get_flag(cc)
+    show(cc)
+    save_flag(img, cc.lower() + '.gif')
+    return cc
+
+
+def download_many(cc_list):
+    workers = min(MAX_WORKERS, len(cc_list))
+    with futures.ThreadPoolExecutor(workers) as executor:
+        res = executor.map(download_one, sorted(cc_list))
+
+    return len(list(res))
+
+if __name__ == '__main__':
+    main(download_many)
+```
+
+##### Futures在何方
+
+Futures是`concurrent.futures`和`asyncio`的核心组件
+
+在Python 3.4 在标准库有两个类叫Future，`concurrent.futures.Future`和`asyncio.Futrue`
+
+一个`Future`类代表一个延期的计算可能已经或可能没有完成
+
+Futures封装了等待操作，所以我们可以把它们放到队列中，它们的完成状态可以被查询，它们的结果可以被接收当结果可用的时候
+
+一个重要的事情就是你不应该创建它们，这意味着它们只能被并发框架实例化
+
+`Executor.submit()`方法接收一个callable对象，调度它去运行，然后返回一个Future
+
+客户端代码不应该改变一个Future对象的状态，并发框架会改变一个Future对象的状态当它完成的时候，我们不能控制这什么时候发生
+
+Future有一个`.done()`方法是非阻塞的，会返回一个布尔值告诉你Future相对应的callable对象是否执行了
+
+Future类有一个`.add_done_callback()`方法，你给一个回调对象，当Future完成后，该回调对象会被调用
+
+Future有一个`.result()`方法，它返回callable对象的结果，或者当callable对象执行的时候抛出的任意异常
+
+`concurrent.futures.Future`实例调用`f.result()`时会注册调用者的线程直到结果可用，一个可选的`timeout`参数可以被传递，如果Future在规定时间没完成，会抛出一个`TimeoutError`异常
+
+使用`concurrent.futures.as_completed`函数，接收一个Futures的迭代。然后返回一个完成任务的Futures的迭代
+
+```python
+from concurrent import futures
+
+from flags import save_flag, get_flag, show, main
+
+MAX_WORKERS = 20
+
+
+def download_one(cc):
+    img = get_flag(cc)
+    show(cc)
+    save_flag(img, cc.lower() + '.gif')
+    return cc
+
+
+def download_many(cc_list):
+    cc_list = cc_list[:5]
+    with futures.ThreadPoolExecutor(max_workers=3) as executor:
+        to_do = []
+        for cc in sorted(cc_list):
+            future = executor.submit(download_one, cc)
+            to_do.append(future)
+            msg = 'Scheduled for {}: {}'
+            print(msg.format(cc, future))
+
+        results = []
+        for future in futures.as_completed(to_do):
+            res = future.result()
+            msg = '{} result: {!r}'
+            print(msg.format(future, res))
+            results.append(res)
+    return len(list(results))
+
+
+if __name__ == '__main__':
+    main(download_many)
+```
+
+注意：`future.result()`调用永远不会阻塞，因为`Future`是从`as_completed`出来
+
+严格来说，这两个例子并没有以并行的方式执行下载，`concurrent.futures`的例子由GIL所限制，而`flags_asyncio.py`是单线程的
+
+#### 阻塞IO和GIL
 
