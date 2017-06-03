@@ -1389,6 +1389,71 @@ def tag(name, *content, cls=None, **attrs):
 
 Python3 提供了语法可以负载元数据到一个函数参数的声明和返回值
 
+函数注解语法可以让你在定义函数的时候对参数和返回值添加注解
+
+```python
+def foobar(a: int, b: "it's b", c: str = 5) -> tuple:
+    return a, b, c
+```
+
+- `a:int` 这种是注解参数
+- `c:str = 5`是注解有默认值的参数
+- `-> tuple`是注解返回自
+
+每个在函数声明中的参数都可能有一个注解表达式 使用`:type`
+
+如果参数有默认值，注解放在参数名和=符号之间`:'int' = 5`
+
+注解返回值 使用`-> type:`
+
+Python对于注解唯一做的事情就是把他们存储在函数的`__annotations__`属性中
+
+```python
+def clip(text: str, max_len: 'int > 0' = 80) -> str:
+    """Return text clipped at the last space before or after max_len"""
+
+    end = None
+    if len(text) > max_len:
+        space_before = text.rfind(' ', 0, max_len)
+        if space_before >= 0:
+            end = space_before
+        else:
+            space_after = text.rfind(' ', max_len)
+            if space_after >= 0:
+                end = space_after
+    if end is None:
+        end = len(text)
+    return text[:end].rstrip()
+```
+
+注解的内容既可以是个类型也可以是个字符串，甚至表达式
+
+获取定义的函数注解的两种方法
+
+- `__annotations__`
+- `inspect.signature`
+
+```python
+from func_anno import clip
+from inspect import signature
+
+sig = signature(clip)
+print(sig.return_annotation)
+for param in sig.parameters.values():
+    note = repr(param.annotation).ljust(13)
+    print(note, ':', param.name, '=', param.default)
+```
+
+输出的数据
+
+```python
+<class 'str'>
+<class 'str'> : text = <class 'inspect._empty'>
+'int > 0'     : max_len = 80
+```
+
+`signature`函数返回一个`Signature`对象，有一个`return_annotation`属性和一个`parameters`字典映射参数名到`Parameter`对象，每个`Parameter`对象都有它自己的注解属性
+
 #### 函数式编程的包
 
 ##### 模块操作符
@@ -1845,6 +1910,10 @@ sudo apt-get update
 sudo apt-get install python-pip
 ```
 
+### 12. 继承：有好有坏
+
+
+
 ### 17. 使用Future完成并发
 
 #### 示例：使用三种风格下载
@@ -2006,4 +2075,46 @@ if __name__ == '__main__':
 严格来说，这两个例子并没有以并行的方式执行下载，`concurrent.futures`的例子由GIL所限制，而`flags_asyncio.py`是单线程的
 
 #### 阻塞IO和GIL
+
+## 第五部分 元编程
+
+### 19. 动态属性
+
+在Python中，数据的属性和方法都叫做属性，方法是一个可调用的属性
+
+properties可以使用一个访问方法替换一个公有的数据属性，而不用改变类的接口
+
+除了properties，Python提供了丰富的API来属性访问和实现动态属性，解释器调用特殊方法像`__attr__`和`__setattr__`，通过使用`.`来封装属性访问
+
+#### 动态属性数据的争论
+
+```python
+from urllib.request import urlopen
+import warnings
+import os
+import json
+
+URL = 'http://www.oreilly.com/pub/sc/osconfeed'
+JSON = 'data/osconfeed.json'
+
+
+def load():
+    if not os.path.exists(JSON):
+        msg = 'downloading {} to {}'.format(URL, JSON)
+        warnings.warn(msg)
+        with urlopen(URL) as remote, open(JSON, 'wb') as local:
+            local.write(remote.read())
+
+    with open(JSON) as fp:
+        return json.load(fp)
+
+
+if __name__ == '__main__':
+    feed = load()
+    print(sorted(feed['Schedule'].keys()))
+    for key, value in sorted(feed['Schedule'].items()):
+        print('{:3} {}'.format(len(value), key))
+```
+
+#### 使用动态属性探索 JSON式的数据
 
