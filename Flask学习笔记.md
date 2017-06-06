@@ -874,3 +874,202 @@ Flask-Moment实现了`format()`,`fromNow()`,`fromTime()`,`calendar()`,`valueOf()
 ```
 
 使用所有在这一章讨论的技术，你应该能够为你的应用构建现代的和用户友好的网页了。下一章我们将接触模板还没有被讨论的方面：怎样通过表单和	用户交互
+
+### 第四章 表单
+
+请求对象，暴露了由客户端请求发送的所有信息，具体来说，`request.form`提供了访问`POST`请求提交的表单数据。
+
+尽管Flask提供的支持处理表单是有效的，有许多任务可能是乏味的和重复的
+
+Flask-WTF拓展让使用表单拥有更好的体验
+
+使用pip安装Flask-WTF和它的依赖
+
+```shell
+(venv) $ pip install flask-wtf
+```
+
+#### 跨站点请求伪造(CSRF)保护
+
+默认情况下，Flask-WTF保护所有的表单防止CSRF攻击。
+
+为了实现CSRF保护，Flask-WTF需要应用配置一个加密的key。Flask-WTF使用这个key生成加密的令牌，使用表单数据校验请求的权限
+
+*Example 4-1. hello.py: Flask-WTF配置*
+
+```python
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'hard to guess string'
+```
+
+`app.config`字典是一个一般目的的地方用来存储框架，扩展或应用本身使用的变量，配置的值可以使用标准的字典语法添加到`app.config`对象中。
+
+配置对象也有方法从文件或环境导入配置的值。
+
+`SECRET_KEY`配置变量被作为一个一般目的的加密key被Flask和其他第三方扩展使用。正如它的名字所示，在每个应用选择不同的加密key，你可以构建和确保这个字符串不会被任何人知道。
+
+#### 表单类
+
+当使用Flask-WTF，每个表单由一个继承自`Form`类的类表示。类定义了表单的字段列表，每个都代表一个对象。每个字段对象都可以有一个或多个校验器，校验器是一个函数用来检查用户提交的输入是否有效。
+
+*Example 4-2. hello.py: 表单类定义*
+
+```python
+from flask_wtf import Form
+from wtforms import StringField, SubmitField
+from wtforms.validators import DataRequired
+
+
+class NameForm(Form):
+    name = StringField('What is your name?', validators=[DataRequired()])
+    submit = SubmitField('Submit')
+```
+
+表单的字段被定义为类变量，每个类变量被赋值一个字段类型的对象。在之前的例子，`NameForm`表单有一个文本字段叫`name`,一个提交按钮叫`submit`。`StringField`类代表一个有一个`type="text"`的`<input>`元素，`SubmitField`类代表一个有一个`type="submit"`的`<input>`元素，字段构造器的第一个参数是用来渲染表单到HTML的标签。
+
+包括在`StringField`构造器内的可选的`validators`参数定义了一个检查器的列表，用来校验用户提交的数据，`DataRequired()`校验器确保字段不能提交空。
+
+由WTF表单支持的标准HTML字段列表
+
+ 
+
+| 字段类型                  | 表述                                |
+| --------------------- | --------------------------------- |
+| `StringField`         | 文本字段                              |
+| `TextAreaField`       | 文本域字段                             |
+| `PasswordField`       | 密码文本字段                            |
+| `HiddenFIeld`         | 隐藏文本字段                            |
+| `DateField`           | 文本字段接受一个给定格式的`datetime.date`值     |
+| `DateTimeField`       | 文本字段接受一个给定格式的`datetime.datetime`值 |
+| `IntegerField`        | 文本字段接受一个整数                        |
+| `DecimalField`        | 文本字段接受一个`decimal.Decimal`值        |
+| `FloatField`          | 文本字段接受一个浮点值                       |
+| `BooleanField`        | True和False的复选框                    |
+| `RadioField`          | 单选框按钮列表                           |
+| `FileField`           | 文件上传字段                            |
+| `SubmitField`         | 表单提交按钮                            |
+| `FormField`           | 嵌入表单                              |
+| `SelectField`         | 下拉选择框                             |
+| `SelectMultipleField` | 多选下拉选择框                           |
+| `FieldList`           | 给定类型的字段列表                         |
+
+WTF表单内置的校验器列表
+
+| 校验器            | 描述               |
+| -------------- | ---------------- |
+| `Email`        | 校验邮箱地址           |
+| `EqualTo`      | 比较两个字段的值是否相等     |
+| `IPAddress`    | 校验一个IPv4网络地址     |
+| `Length`       | 校验驶入字符串的长度       |
+| `NumberRange`  | 校验输入的值是否在一个数字范围内 |
+| `Optional`     | 允许字段为空           |
+| `DataRequired` | 校验字段不能为空         |
+| `Regexp`       | 使用正则表达式校验输入      |
+| `URL`          | 校验一个URL          |
+| `AnyOf`        | 校验输入的值是否可能的值之一   |
+| `NoneOf`       | 校验驶入的值不在可能的值列表   |
+
+#### 表单的HTML渲染
+
+当调用时，表单字段是可调用的，从一个模板渲染他们自己到HTML。
+
+假如视图函数传递一个`NameForm`实例到模板作为一个参数名`form`，表单可以生成一个简单的HTML表单：
+
+```html
+<form method="POST">
+	{{ form.name.label }} {{ form.name() }}
+	{{ form.submit() }}
+</form>
+```
+
+当然，这个结果是相当赤裸的，为了改善表单的外观，发送给调用的任意参数都会渲染字段转换到该字段的HTML属性。
+
+例如，你可以给一个字段id或class属性，接着定义CSS：
+
+```html
+<form method="POST">
+{{ form.name.label }} {{ form.name(id='my-text-field') }}
+{{ form.submit() }}
+</form>
+```
+
+Flask-Bootstrap提供了一个高水平的帮助函数使用Bootstrap预定义的表单类型渲染整个Flask-WTF表单，使用Flask-Bootstrap，之前的表单可以渲染成下面这样的：
+
+```html
+{% import "bootstrap/wtf.html" as wtf %}
+{{ wtf.quick_form(form) }}
+```
+
+`import`指令可以像普通的Python脚本一样工作，允许模板元素被导入，并做多个模板使用，导入的*bootstrap/wtf.html*文件定义了帮助类使用Bootstrap渲染Flask-WTF表单。
+
+`wtf.quick_form()`函数接收一个Flask-WTF表单对象，并使用默认的Bootstrap类型渲染
+
+*Example 4-3. templates/index.html: 使用Flask-WTF和Flask-Bootstrap渲染表单*
+
+```html
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}Flasky{% endblock %}
+
+{% block page_content %}
+<div class="page-header">
+	<h1>Hello, {% if name %}{{ name }}{% else %}Stranger{% endif %}!</h1>
+</div>
+{{ wtf.quick_form(form) }}
+{% endblock %}
+```
+
+模板的内容区域现在有两个部分，第一部分是一个显示问候的页头。这儿使用了一个条件模板，在Jinja2中的条件模板使用`{% if variable %}...{% else %}...{% endif %}`格式。如果条件计算为True，出现在if和else指令之间的内容会被渲染，如果条件计算为False，else和elif之间的内容会被渲染。
+
+第二个部分是使用`wtf.quick_form()`函数渲染内容
+
+#### 在视图函数中处理表单
+
+在新版本的*hello.py*中，`index()`函数将会渲染表单同时也接收它的数据
+
+```python
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    name = None
+    form = NameForm()
+    if form.validate_on_submit():
+        name = form.name.data
+        form.name.data = ''
+    return render_template('index.html', form=form, name=name)
+```
+
+添加到`app.route`装饰器的`methods`参数告诉Flask注册视图函数作为GET和POST请求的处理器，当methods没有给定时，视图函数被注册只能处理GET请求。
+
+增加POST到方法列表是必要的，因为表单提交通常被作为POST请求处理。也有可能使用GET方法提交表单，但是GET方法没有方法体，数据会作为查询参数添加到URL，在浏览器的地址栏会变成可见的，因为这个原因和其他的理由，表单提交通常由POST请求处理
+
+#### 重定向和用户会话
+
+最后一个版本的*hello.py* 有一个可用的问题，如果你输入你的姓名并提交，接着点击浏览器的刷新按钮，你可能会得到一个明显的警告，要求确认之前提交的表单。这是因为浏览器重复上次的请求当他们被要求刷新页面。
+
+当最后一个请求是POST请求，一个刷新会导致重复表单提交，大多数情况下都不是期望的行为
+
+一个web应用的最佳实践就是不要让POST请求作为最后一个浏览器发送的请求
+
+该实践可以通过用*重定向* 响应POST请求而不是直接返回一个普通的响应
+
+这个技巧被叫做`POST/REDIRECT/GET`模式
+
+但是这个方法会产生第二个问题，当应用处理POST请求的时候，它在`form.name.data` 访问用户输入的名称.但是只要请求结束了，表单数据就丢失了。因为POST请求被一个重定向处理，应用需要存储名称以便重定向可以访问并使用它构造实际的响应。
+
+通过用户会话来保存数据
+
+```python
+from flask import Flask, render_template, session, redirect, url_for
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+	form = NameForm()
+	if form.validate_on_submit():
+		session['name'] = form.name.data
+		return redirect(url_for('index'))
+	return render_template('index.html', form=form,name=session.get('name'))
+```
+
+
+
