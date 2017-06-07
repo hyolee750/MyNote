@@ -644,20 +644,20 @@ Flask-Bootstrap的*base.html* 模板定义了几个其他块可以用于派生�
 
 *Table 3-2. Flask-Bootstrap’的基本模板块*
 
-| 块名称            | 描述                 |
-| -------------- | ------------------ |
-| `doc`          | 整个HTML文档           |
-| `html_attribs` | 在`<html>`标签内的属性    |
-| `html`         | `<html>`标签的内容      |
-| `head`         | `<head>`标签的内容      |
-| `title`        | `<title>`标签的内容     |
-| `metas`        | `<meta>`标签列表       |
-| `styles`       | 级联样式表定义            |
-| `body_attribs` | `<body>`标签内的属性     |
-| `body`         | `<body>`标签的内容      |
-| `navbar`       | 用户自定义的导航栏          |
-| `content`      | 用户自定义的页面内容         |
-| `scripts`      | 在文档底部声明的JavaScript |
+| 块名称                              | 描述                 |
+| -------------------------------- | ------------------ |
+| `doc`                            | 整个HTML文档           |
+| `html_attribs` | 在`<html>`标签内的属性 |                    |
+| `html`         | `<html>`标签的内容   |                    |
+| `head`         | `<head>`标签的内容   |                    |
+| `title`        | `<title>`标签的内容  |                    |
+| `metas`        | `<meta>`标签列表    |                    |
+| `styles`                         | 级联样式表定义            |
+| `body_attribs` | `<body>`标签内的属性  |                    |
+| `body`         | `<body>`标签的内容   |                    |
+| `navbar`                         | 用户自定义的导航栏          |
+| `content`                        | 用户自定义的页面内容         |
+| `scripts`                        | 在文档底部声明的JavaScript |
 
 在表3-2的大部分代码块被Flask-Bootstrap本身使用，所以直接覆盖他们会引起问题。例如，`styles`和`scripts`是Bootstrap文件被声明的地方，如果应用需要增加它自己的内容到已经有一些内容的代码块。Jinja2的`super()`函数必须被使用。
 
@@ -933,25 +933,25 @@ class NameForm(Form):
 
  
 
-| 字段类型                  | 表述                                |
-| --------------------- | --------------------------------- |
-| `StringField`         | 文本字段                              |
-| `TextAreaField`       | 文本域字段                             |
-| `PasswordField`       | 密码文本字段                            |
-| `HiddenFIeld`         | 隐藏文本字段                            |
-| `DateField`           | 文本字段接受一个给定格式的`datetime.date`值     |
-| `DateTimeField`       | 文本字段接受一个给定格式的`datetime.datetime`值 |
-| `IntegerField`        | 文本字段接受一个整数                        |
-| `DecimalField`        | 文本字段接受一个`decimal.Decimal`值        |
-| `FloatField`          | 文本字段接受一个浮点值                       |
-| `BooleanField`        | True和False的复选框                    |
-| `RadioField`          | 单选框按钮列表                           |
-| `FileField`           | 文件上传字段                            |
-| `SubmitField`         | 表单提交按钮                            |
-| `FormField`           | 嵌入表单                              |
-| `SelectField`         | 下拉选择框                             |
-| `SelectMultipleField` | 多选下拉选择框                           |
-| `FieldList`           | 给定类型的字段列表                         |
+| 字段类型                                     | 表述             |
+| ---------------------------------------- | -------------- |
+| `StringField`                            | 文本字段           |
+| `TextAreaField`                          | 文本域字段          |
+| `PasswordField`                          | 密码文本字段         |
+| `HiddenFIeld`                            | 隐藏文本字段         |
+| `DateField`           | 文本字段接受一个给定格式的`datetime.date`值 |                |
+| `DateTimeField`       | 文本字段接受一个给定格式的`datetime.datetime`值 |                |
+| `IntegerField`                           | 文本字段接受一个整数     |
+| `DecimalField`        | 文本字段接受一个`decimal.Decimal`值 |                |
+| `FloatField`                             | 文本字段接受一个浮点值    |
+| `BooleanField`                           | True和False的复选框 |
+| `RadioField`                             | 单选框按钮列表        |
+| `FileField`                              | 文件上传字段         |
+| `SubmitField`                            | 表单提交按钮         |
+| `FormField`                              | 嵌入表单           |
+| `SelectField`                            | 下拉选择框          |
+| `SelectMultipleField`                    | 多选下拉选择框        |
+| `FieldList`                              | 给定类型的字段列表      |
 
 WTF表单内置的校验器列表
 
@@ -1071,5 +1071,584 @@ def index():
 	return render_template('index.html', form=form,name=session.get('name'))
 ```
 
+在之前版本的应用，一个本地变量`name`被用来存储由用户在表单中输入的姓名，现在变量被放在以`session['name']`的形式放在用户会话中，以便它可以在请求之外被记住。
 
+使用`url_for()`来生成URL是被鼓励的，因为这个函数使用URL映射来生成URL。所以URL保证可以兼容已定义的路由，任何路由名称的改变都会自动可用。
+
+第一个也是唯一一个必需的参数就是*端点名*，默认情况下，路由的端点是视图函数的名字。
+
+最后一个在`render_template()`函数，现在直接使用`session.get('name')`从用户会话中获取`name`参数。作为一个普通的字典，使用`get()`请求一个字典的key避免了key没有找到的异常，因为`get()`对于不存在的键会返回一个默认值None。
+
+#### 消息闪烁
+
+有时，在一个请求完成之后给用户一个状态更新是很有用的。这可以是一个确认或警告或错误信息，一个典型的例子就是当你提交一个登录有错误的时候，服务器会重新渲染登录表单和一个消息通知你你的用户名或密码不合法。
+
+使用`flash()`函数可以完成这个目的
+
+```python
+from flask import Flask, render_template, session, redirect, url_for, flash
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+	form = NameForm()
+	if form.validate_on_submit():
+		old_name = session.get('name')
+		if old_name is not None and old_name != form.name.data:
+			flash('Looks like you have changed your name!')
+		session['name'] = form.name.data
+		form.name.data = ''
+		return redirect(url_for('index'))
+	return render_template('index.html',
+form = form, name = session.get('name'))
+```
+
+在这个例子中，如果两个名字不同，`flash()`函数被调用，一个消息会被显示在发送给客户端的下一个响应上。
+
+为了获取消息调用`flash()`是不足够的，应用的模板需要渲染这些消息。渲染闪烁消息最好的地方就是基本模板。因为这会在所有页面启用这些消息。
+
+Flask有一个`get_flashed_messages()`方法对模板可用，用来接收消息和渲染它们
+
+*Example 4-7. templates/base.html: 闪烁消息渲染*
+
+```html
+{% block content %}
+<div class="container">
+	{% for message in get_flashed_messages() %}
+	<div class="alert alert-warning">
+		<button type="button" class="close" data-dismiss="alert">&times;</button>
+		{{ message }}
+	</div>
+	{% endfor %}
+  
+	{% block page_content %}{% endblock %}
+</div>
+{% endblock %}
+```
+
+### 第五章 数据库
+
+数据库以一个已组织的方式存储应用数据。应用使用查询来获取他们需要的特殊部分。web应用最常用的数据库是那些基于关系模型的
+
+#### SQL数据库
+
+关系型数据库以表的形式存储数据。
+
+一个表有固定数量的列和不同数量的行
+
+#### 使用Flask-SQLAlchemy管理数据库
+
+使用`pip`安装
+
+```shell
+(venv) $ pip install flask-sqlalchemy
+```
+
+在Flask-SQLAlchemy，一个数据库被具体定义为一个URL
+
+| 数据库引擎           | URL                                      |
+| --------------- | ---------------------------------------- |
+| MySQL           | `mysql://username:password@hostname/database` |
+| Postgres        | `postgresql://username:password@hostname/database` |
+| SQLite(Unix)    | `sqlite:////absolute/path/to/database`   |
+| SQLite(Windows) | `sqlite:///c:/absolute/path/to/database` |
+
+在这些URL中，*hostname*指向Mysql服务的服务器主机，可以是一个*localhost*也可以是一个远程服务器。数据库服务器可以有多个数据库，所以*database*表明要使用的数据库的名称，对于数据库来说需要授权，*username*和`password`是数据库用户的身份。
+
+应用数据库的URL必须被定义为`SQLALCHEMY_DATABASE_URI` 在Flask的配置对象中。
+
+另一个有用的选项是配置键`SQLALCHEMY_COMMIT_ON_TEARDOWN`，可以设置为True启用在每次请求之后自动提交数据库改变。
+
+*Example 5-1. hello.py: 数据库配置*
+
+```python
+from flask.ext.sqlalchemy import SQLAlchemy
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] =\
+'sqlite:///' + os.path.join(basedir, 'data.sqlite')
+app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
+
+db = SQLAlchemy(app)
+```
+
+`db`对象从`SQLAlchemy`类实例化，代表数据库提供了访问所有Flask-SQLAlchemy函数的能力。
+
+#### 模型定义
+
+术语*模型*被用来指向由应用使用的持久化实体。在ORM的上下文中，模型典型地是一个Python类，属性匹配相应数据库表的列。
+
+*Example 5-2. hello.py: 角色和用户模型定义*
+
+```python
+class Role(db.Model):
+	__tablename__ = 'roles'
+	id = db.Column(db.Integer, primary_key=True)
+	name = db.Column(db.String(64), unique=True)
+    
+	def __repr__(self):
+		return '<Role %r>' % self.name
+    
+class User(db.Model):
+	__tablename__ = 'users'
+	id = db.Column(db.Integer, primary_key=True)
+	username = db.Column(db.String(64), unique=True, index=True)
+    
+	def __repr__(self):
+		return '<User %r>' % self.username
+```
+
+`__tablename__`变量定义了在数据库中表的名字，如果该变量忽略，Flask-SQLAlchemy会赋值一个默认的表名，最好是显式地命名表名，剩余的类变量是模型的属性，由`db.Column`类的实例定义。
+
+`db.Column`构造器的第一个参数是数据库列的类型和模型属性。
+
+*Table 5-2. 最常用的SQLAlchemy列类型*
+
+| 类型名          | Python类型             | 描述              |
+| ------------ | -------------------- | --------------- |
+| Integer      | `int`                | 普通的整数，一般32位     |
+| SmallInteger | `int`                | 短范围的整数，一般16位    |
+| BigInteger   | `int`或`long`         | 无限位的整数          |
+| Float        | `float`              | 浮点数             |
+| Numeric      | `decimal.Decimal`    | 固点数             |
+| String       | `str`                | 可变长度的字符串        |
+| Text         | `str`                | 可变长度的字符串，用于无边界的 |
+| Unicode      | `unicode`            | 可变长度的unicode字符串 |
+| UnicodeText  | `unicode`            | 可变长度的unicode字符串 |
+| Boolean      | `bool`               | 布尔值             |
+| Date         | `datetime.date`      | 日期值             |
+| Time         | `datetime.time`      | 时间值             |
+| DateTime     | `datetime.datetime`  | 日期时间值           |
+| Interval     | `datetime.timedelta` | 时间间隔            |
+| Enum         | `str`                | 字符串值列表          |
+| PickleType   | 任意Python对象           | 自动Pickle序列化     |
+| LargeBinary  | `str`                | 二进制数据           |
+
+`db.Column`的剩余参数定义了每个属性的特殊配置选项
+
+*Table 5-3. 最常用的SQLAlchemy 列选项*
+
+| 选项名称          | 描述                                  |
+| ------------- | ----------------------------------- |
+| `primary_key` | 如果设置为True，该列是表的主键                   |
+| `unique`      | 如果设置为True，该列不允许重复值                  |
+| `index`       | 如果设置为True，为该列创建一个索引，可以让查询更有效        |
+| `nullable`    | 如果设置为True。该列允许空值，如果设置为False，该列不允许为空 |
+| `default`     | 为该列定义一个默认值                          |
+
+尽管不是特别必要，两个模型包括了一个`__repr__()`方法可以让他们生成一个可读的字符串表述。
+
+#### 关系
+
+关系型数据库通过使用关系来连接两个不同表的行。
+
+角色和用户是一个一对多的关系，一个角色可以属于多个用户，一个用户只能有一个角色
+
+*Example 5-3. hello.py: 关系*
+
+```python
+class Role(db.Model):
+# ...
+users = db.relationship('User', backref='role')
+
+class User(db.Model):
+# ...
+role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+```
+
+`db.relationship`定义了两个实体的关系
+
+`backref`翻转两个实体的引用关系
+
+`db.ForeignKey`定义外键
+
+*Table 5-4. 常用的SQLAlchemy关系选项*
+
+| 选项名             | 描述                      |
+| --------------- | ----------------------- |
+| `backref`       | 在关系中的另一个模型中添加一个反向引用     |
+| `primaryjoin`   | 显式地定义两个模型之间的连接条件。使用主键连接 |
+| `lazy`          | 定义相关的项是如何被加载的。          |
+| `uselist`       | 如果设置为False，使用标量代替列表     |
+| `order_by`      | 用来定义在关系中项的顺序            |
+| `secondary`     | 在多对多关系中定义关联表的名称         |
+| `secondaryjoin` | 指定多对多关系的辅助连接条件          |
+
+`lazy`可能的值：
+
+- `select`：项会在第一次被访问的时候加载
+- `immediate`：当源代码被加载的时候项被加载
+- `joined`： 项被立即加载，但是被作为连接
+- `subquery`： 项被立即加载，但是被作为子查询
+- `noload`： 项永远不被加载
+- `dynamic`： 使用给出可以加载它们的查询来加载项
+
+如果你想要使用多对多关系，你需要定义一个帮助表，强烈推荐帮助表是一个实际的表而不是一个模型
+
+```python
+tags = db.Table('tags',
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id')),
+    db.Column('page_id', db.Integer, db.ForeignKey('page.id'))
+)
+
+class Page(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tags = db.relationship('Tag', secondary=tags,
+        backref=db.backref('pages', lazy='dynamic'))
+
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+```
+
+#### 数据库操作
+
+##### 创建表
+
+第一件要做的事情就是调用Flask-SQLAlchemy基于模型类创建一个数据库
+
+`db.create_all()`函数就是用来做这个的
+
+```python
+(venv) $ python hello.py shell
+>>> from hello import db
+>>> db.create_all()
+```
+
+`db.create_all()`不会重新创建或更新一个数据库表如果它已经存在于数据库了
+
+这可能不方便的当模型被修改需要改变到一个已经存在的数据库，更新已经存在的数据库的表的蛮力解决方案就是先把老的表删除：
+
+```python
+>>> db.drop_all()
+>>> db.create_all()
+```
+
+不幸的是，这个方法会摧毁在老的数据库中的所有数据。
+
+##### 插入行
+
+下面的例子创建了一些角色和用户：
+
+```python
+>>> from hello import Role, User
+>>> admin_role = Role(name='Admin')
+>>> mod_role = Role(name='Moderator')
+>>> user_role = Role(name='User')
+>>> user_john = User(username='john', role=admin_role)
+>>> user_susan = User(username='susan', role=user_role)
+>>> user_david = User(username='david', role=user_role)
+```
+这些对象目前只存在与Python这边，还没有被写到数据库，因为他们的id还没有被赋值
+
+```python
+>>> print(admin_role.id)
+None
+>>> print(mod_role.id)
+None
+>>> print(user_role.id)
+None
+```
+
+保存到数据是通过数据库`session`来管理的，Flask-SQLAlchemy提供了`db.session`
+
+```python
+>>> db.session.add(admin_role)
+>>> db.session.add(mod_role)
+>>> db.session.add(user_role)
+>>> db.session.add(user_john)
+>>> db.session.add(user_susan)
+>>> db.session.add(user_david)
+```
+
+或者更简洁的：
+
+```python
+>>> db.session.add_all([admin_role, mod_role, user_role,
+...		user_john, user_susan, user_david])
+```
+
+为了把对象写到数据库，session需要调用`commit()`方法进行提交
+
+```python
+>>> db.session.commit()
+```
+
+再次检查id属性，他们现在被设置为：
+
+```python
+>>> print(admin_role.id)
+1
+>>> print(mod_role.id)
+2
+>>> print(user_role.id)
+3
+```
+
+##### 修改行
+
+数据库session的`add()`方法也可以用来更新对象。
+
+```python
+>>> admin_role.name = 'Administrator'
+>>> db.session.add(admin_role)
+>>> db.session.commit()
+```
+
+##### 删除行
+
+使用数据库session的`delete()`方法
+
+```python
+>>> db.session.delete(mod_role)
+>>> db.session.commit()
+```
+
+注意删除，像插入和更新一样，只有当数据库session被提交后才执行
+
+##### 查询行
+
+Flask-SQLAlchemy在每个模型类上都有一个`query`对象可用。最基础的查询就是返回响应表的所有内容
+
+```python
+>>> Role.query.all()
+[<Role u'Administrator'>, <Role u'User'>]
+>>> User.query.all()
+[<User u'john'>, <User u'susan'>, <User u'david'>]
+```
+
+使用过滤器，一个查询对象可以被配置成解决更特殊的数据库搜索。
+
+```python
+>>> User.query.filter_by(role=user_role).all()
+[<User u'susan'>, <User u'david'>]
+```
+
+检查SQLAlchemy从一个给定的查询生成的本地SQL查询通过转换查询对象到一个字符串
+
+```python
+>>> str(User.query.filter_by(role=user_role))
+'SELECT users.id AS users_id, users.username AS users_username,
+users.role_id AS users_role_id FROM users WHERE :param_1 = users.role_id'
+```
+
+如果你退出shell会话，在之前例子中创建的对象会被作为Python对象擦除，但会继续作为行存在于相应的数据库表中。
+
+```python
+>>> user_role = Role.query.filter_by(name='User').first()
+```
+
+像`filter_by`这样的过滤器被一个查询对象所调用，会返回一个新的查询对象，可以以序列的形式调用多个过滤器。
+
+*Table 5-5. 常用的SQLAlchemy查询过滤器*
+
+| 选项            | 描述                    |
+| ------------- | --------------------- |
+| `filter()`    | 返回一个增加了额外过滤器到原始查询的新查询 |
+| `filter_by()` | 返回一个增加了额外过滤器到原始查询的新查询 |
+| `limit()`     | 返回一个新查询，限制了返回的行数      |
+| `offset()`    | 返回一个新的查询，从某个偏移量开始     |
+| `order_by()`  | 根据某个属性进行排序            |
+| `group_by()`  | 根据某个属性进行分组            |
+
+使用了期望的过滤器之后，调用`call()`会让查询去执行，然后返回一个列表结果
+
+*Table 5-6. 最常用的QLAlchemy 查询执行器*
+
+| 选项               | 描述                             |
+| ---------------- | ------------------------------ |
+| `all()`          | 返回所有的结果作为一个列表                  |
+| `first()`        | 返回查询的第一个结果，如果没有结果则为None        |
+| `first_or_404()` | 返回查询的第一个结果，如果没有，则发送一个404错误作为响应 |
+| `get()`          | 根据主键返回行，如果没找到，返回None           |
+| `get_or_404()`   | 根据主键返回行，如果没找到，产生404错误          |
+| `count()`        | 返回查询结果的个数                      |
+| `paginate()`     | 返回一个`Pagination`对象包含具体范围的结果    |
+
+关系与查询类似。
+
+```python
+>>> users = user_role.users
+>>> users
+[<User u'susan'>, <User u'david'>]
+>>> users[0].role
+<Role u'User'>
+```
+
+`user_role.users`查询有一点小问题。隐式的查询执行了当`user_role.users`表达式内部调用`call()`返回用户的列表。因为查询对象是隐藏的，不可能使用额外的查询过滤器来精致它。在这个特别的例子中，请求用户列表以字母表顺序返回是很有用的。
+
+关系的配置被修改成`lazy='dynamic'` 不会自动执行
+
+```python
+class Role(db.Model):
+# ...
+users = db.relationship('User', backref='role', lazy='dynamic')
+# ..
+```
+
+以这种方式配置关系，`user_role.users`返回了一个还没有执行的查询。所以可以为它增加过滤器
+
+```python
+>>> user_role.users.order_by(User.username).all()
+[<User u'david'>, <User u'susan'>]
+>>> user_role.users.count()
+2
+```
+
+#### 在视图函数中使用数据库
+
+在之前部分描述的数据库操作可以在视图函数内直接使用。
+
+下面显示了一个新版本的主页路由记录用户输入的名称到数据库
+
+```python
+@app.route('/', methods=['GET', 'POST'])
+def index():
+	form = NameForm()
+	if form.validate_on_submit():
+		user = User.query.filter_by(username=form.name.data).first()
+		if user is None:
+			user = User(username = form.name.data)
+			db.session.add(user)
+			session['known'] = False
+		else:
+			session['known'] = True
+		session['name'] = form.name.data
+		form.name.data = ''
+		return redirect(url_for('index'))
+	return render_template('index.html',form = form, name =session.get('name'),known = session.get('known', False))
+```
+
+更新之后的模板
+
+*Example 5-6. templates/index.html*
+
+```html
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}Flasky{% endblock %}
+
+{% block page_content %}
+    <div class="page-header">
+        <h1>Hello, {% if name %}{{ name }}{% else %}Stranger{% endif %}</h1>
+        {% if not known %}
+            <p>Pleased to meet you!</p>
+        {% else %}
+            <p>Happy to see you again!</p>
+        {% endif %}
+    </div>
+    {{ wtf.quick_form(form) }}
+{% endblock %}
+```
+
+#### 集成Python Shell
+
+每次一个Shell被开启，然后导入数据库实例和模型是非常乏味的工作。为了避免不断的重复这些导入操作，Flask-Script的shell命令行可以被配置成自动导入特定的对象
+
+为了添加对象到shell命令的导入列表，需要注册一个`make_context`回调函数
+
+*Example 5-7. hello.py: 添加shell上下文*
+
+```python
+from flask.ext.script import Shell
+def make_shell_context():
+    return dict(app=app, db=db, User=User, Role=Role)
+manager.add_command("shell", Shell(make_context=make_shell_context))
+```
+
+`make_shell_context()`函数注册 应用，数据库实例和模型以便他们可以自动被导入到shell
+
+```python
+$ python hello.py shell
+>>> app
+<Flask 'app'>
+>>> db
+<SQLAlchemy engine='sqlite:////home/flask/flasky/data.sqlite'>
+>>> User
+<class 'app.User'>
+```
+
+#### 使用Flask-Migrate进行数据库迁移
+
+当你进行一个应用的开发，你会发现你的数据库模型需要改变，同时数据库也需要被更新
+
+Flask-SQLAlchemy只在他们已经不存在的时候才会创建数据库表，所以唯一的方式更新表就是先摧毁之前的老表，当然，这会引起数据库中所有的数据丢失。
+
+一个更好的解决方案是使用*数据库迁移*框架，和源代码版本控制工具跟踪源代码文件的改变一样，一个数据库迁移框架会根据一个数据库模式的改变，增加的改变可以应用到数据库
+
+Flask应用可以使用Flask-Migrate框架，一个轻量级的Alembic包装集成了Flask-Script提供了所有Flask-Script命令行的操作
+
+##### 创建一个迁移仓库
+
+开始之前，Flask-Migrate必须被安装到虚拟环境
+
+```shell
+(venv) $ pip install flask-migrate
+```
+
+*Example 5-8. hello.py: Flask-Migrate 配置*
+
+```python
+from flask.ext.migrate import Migrate, MigrateCommand
+# ...
+migrate = Migrate(app, db)
+manager.add_command('db', MigrateCommand)
+```
+
+为了暴露数据库迁移命令，Flask-Migrate暴露了一个`MigrateCommand`类被附加到Flask-Script的`manager`对象上。在这个例子中，使用`db`命令被附加了。
+
+在数据库迁移可以被操作之前，必须要使用`init`子命令创建一个迁移仓库
+
+```shell
+(venv) $ python hello.py db init
+Creating directory /home/flask/flasky/migrations...done
+Creating directory /home/flask/flasky/migrations/versions...done
+Generating /home/flask/flasky/migrations/alembic.ini...done
+Generating /home/flask/flasky/migrations/env.py...done
+Generating /home/flask/flasky/migrations/env.pyc...done
+Generating /home/flask/flasky/migrations/README...done
+Generating /home/flask/flasky/migrations/script.py.mako...done
+Please edit configuration/connection/logging settings in
+'/home/flask/flasky/migrations/alembic.ini' before proceeding
+```
+
+这个命令创建一个*migrations*文件夹，迁移脚本将会被存储到这个地方。
+
+##### 创建一个迁移脚本
+
+在Alembic，一个数据库迁移被一个*migration script*表示。这个脚本有两个函数叫`upgrade()`和`downgrade()`。`upgrade()`保存数据库改变，`downgrade()`删除他们。
+
+通过添加和删除改变的能力，Alembic可以在改变历史的任何一点上重新配置数据库
+
+Alembic迁移可以使用`revision`和`migrate`命令手动或自动创建，相应地，手动迁移创建了一个迁移骨架脚本使用空的`upgrade()`和`downgrade()`函数需要被开发人员来实现
+
+一个自动迁移，为`upgrade()`和`downgrade()`函数生成代码，通过比较模型定义和数据库当前状态
+
+`migrate`子命令创建了一个自动迁移脚本
+
+```shell
+(venv) $ python hello.py db migrate -m "initial migration"
+INFO [alembic.migration] Context impl SQLiteImpl.
+INFO [alembic.migration] Will assume non-transactional DDL.
+INFO [alembic.autogenerate] Detected added table 'roles'
+INFO [alembic.autogenerate] Detected added table 'users'
+INFO [alembic.autogenerate.compare] Detected added index
+'ix_users_username' on '['username']'
+Generating /home/flask/flasky/migrations/versions/1bc
+594146bb5_initial_migration.py...done
+```
+
+##### 升级数据库
+
+一旦一个迁移脚本被接收到，它就会使用`db upgrade`命令更新数据库
+
+```shell
+(venv) $ python hello.py db upgrade
+INFO [alembic.migration] Context impl SQLiteImpl.
+INFO [alembic.migration] Will assume non-transactional DDL.
+INFO [alembic.migration] Running upgrade None -> 1bc594146bb5, initial migration
+```
+
+对于第一个迁移来说，这个是有效等价于调用`db.create_all()`，但是在成功的迁移，`upgrade`命令更新表而不会影响他们的内容
 
