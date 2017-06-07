@@ -1455,15 +1455,15 @@ users.role_id AS users_role_id FROM users WHERE :param_1 = users.role_id'
 
 *Table 5-6. 最常用的QLAlchemy 查询执行器*
 
-| 选项               | 描述                             |
-| ---------------- | ------------------------------ |
-| `all()`          | 返回所有的结果作为一个列表                  |
-| `first()`        | 返回查询的第一个结果，如果没有结果则为None        |
-| `first_or_404()` | 返回查询的第一个结果，如果没有，则发送一个404错误作为响应 |
-| `get()`          | 根据主键返回行，如果没找到，返回None           |
-| `get_or_404()`   | 根据主键返回行，如果没找到，产生404错误          |
-| `count()`        | 返回查询结果的个数                      |
-| `paginate()`     | 返回一个`Pagination`对象包含具体范围的结果    |
+| 选项                                       | 描述                             |
+| ---------------------------------------- | ------------------------------ |
+| `all()`                                  | 返回所有的结果作为一个列表                  |
+| `first()`                                | 返回查询的第一个结果，如果没有结果则为None        |
+| `first_or_404()`                         | 返回查询的第一个结果，如果没有，则发送一个404错误作为响应 |
+| `get()`                                  | 根据主键返回行，如果没找到，返回None           |
+| `get_or_404()`                           | 根据主键返回行，如果没找到，产生404错误          |
+| `count()`                                | 返回查询结果的个数                      |
+| `paginate()`     | 返回一个`Pagination`对象包含具体范围的结果 |                                |
 
 关系与查询类似。
 
@@ -1651,4 +1651,200 @@ INFO [alembic.migration] Running upgrade None -> 1bc594146bb5, initial migration
 ```
 
 对于第一个迁移来说，这个是有效等价于调用`db.create_all()`，但是在成功的迁移，`upgrade`命令更新表而不会影响他们的内容
+
+### 第六章 邮件
+
+很多类型的应用当特定的事件发生时需要提醒用户。通常交流的方式就是邮件，尽管来自Python标准库的`smtplib`可以被用来发送邮件，Flask-Mail扩展包装了smtplib，和Flask优雅的集成
+
+#### 使用Flask-Mail支持邮件
+
+使用pip安装FLask-Mail
+
+```shell
+(venv) $ pip install flask-mail
+```
+
+*Table 6-1. Flask-Mail SMTP server configuration keys*
+
+| 键             | 默认值       | 描述             |
+| ------------- | --------- | -------------- |
+| MAIL_HOSTNAME | localhost | 邮件服务器的主机名或IP地址 |
+| MAIL_PORT     | 25        | 邮件服务器的端口号      |
+| MAIL_USE_TLS  | False     | 启用TLS安全        |
+| MAIL_USE_SSL  | False     | 启用SSL安全        |
+| MAIL_USERNAME | None      | 邮箱账户名          |
+| MAIL_PASSWORD | None      | 邮箱密码           |
+
+在开发过程中使用一个额外的SMTP服务器会更便捷
+
+```python
+import os
+# ...
+app.config['MAIL_SERVER'] = 'smtp.googlemail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+```
+
+Flask-Mail初始化
+
+```python
+from flask.ext.mail import Mail
+mail = Mail(app)
+```
+
+两个保存邮件服务器的用户名和密码的环境变量需要在环境中被定义，设置这些变量
+
+```shell
+(venv) $ export MAIL_USERNAME=<Gmail username>
+(venv) $ export MAIL_PASSWORD=<Gmail password>
+```
+
+##### 从Python Shell发送邮件
+
+发送一个测试邮件
+
+````python
+(venv) $ python hello.py shell
+>>> from flask.ext.mail import Message
+>>> from hello import mail
+>>> msg = Message('test subject', sender='you@example.com',
+...		recipients=['you@example.com'])
+>>> msg.body = 'text body'
+>>> msg.html = '<b>HTML</b> body'
+>>> with app.app_context():
+...		mail.send(msg)
+````
+
+注意到Flask-Mail的`send()`函数使用`current_app`，所以它需要在一个激活的应用上下文中执行
+
+##### 应用集成邮件
+
+为了避免每次都要手动的创建邮箱消息，最好应用邮件常用的部分到一个函数，这个函数可以使用JInja2的模板引擎渲染邮件
+
+```python
+from flask.ext.mail import Message
+
+app.config['FLASKY_MAIL_SUBJECT_PREFIX'] = '[Flasky]'
+app.config['FLASKY_MAIL_SENDER'] = 'Flasky Admin <flasky@example.com>'
+
+def send_email(to, subject, template, **kwargs):
+	msg = Message(app.config['FLASKY_MAIL_SUBJECT_PREFIX'] + subject,
+			sender=app.config['FLASKY_MAIL_SENDER'], recipients=[to])
+	msg.body = render_template(template + '.txt', **kwargs)
+	msg.html = render_template(template + '.html', **kwargs)
+	mail.send(msg)
+```
+
+这个函数依赖两个应用特殊的配置key，定义了一个主题的前缀字符串，一个被用作发送者点地址，`send_email`函数接收目的地址，主题行，一个邮箱主体的模板，一个关键字参数列表。模板名不能有扩展名，以便那两个版本的模板可以被用来进行普通文本和富文本的主体。
+
+*Example 6-4. hello.py: Email example*
+
+```python
+# ...
+app.config['FLASKY_ADMIN'] = os.environ.get('FLASKY_ADMIN')
+# ...
+@app.route('/', methods=['GET', 'POST'])
+def index():
+	form = NameForm()
+	if form.validate_on_submit():
+		user = User.query.filter_by(username=form.name.data).first()
+		if user is None:
+			user = User(username=form.name.data)
+			db.session.add(user)
+			session['known'] = False
+			if app.config['FLASKY_ADMIN']:
+    			send_email(app.config['FLASKY_ADMIN'], 'New User',
+'mail/new_user', user=user)
+		else:
+			session['known'] = True
+		session['name'] = form.name.data
+		form.name.data = ''
+		return redirect(url_for('index'))
+	return render_template('index.html',form=form,name=session.get('name'),known=session.get('known', False))
+```
+
+除了MAIL_USERNAME和MAIL_PASSWORD环境变量，这个版本的应用需要FLASKY_ADMIN环境变量
+
+```shell
+(venv) $ export FLASKY_ADMIN=<your-email-address>
+```
+
+##### 发送匿名邮件
+
+如果你发送了一些测试邮件，你可能注意到`mail.send()`方法会阻塞几秒，当邮件被发送的时候，使浏览器在这段时间内好像没有响应一样，为了避免不必要的延迟，邮件发送函数可以被移动到一个背景线程
+
+*Example 6-5. hello.py: Asynchronous email support*
+
+```python
+from threading import Thread
+
+def send_async_email(app, msg):
+	with app.app_context():
+    	mail.send(msg)
+        
+def send_email(to, subject, template, **kwargs):
+	msg = Message(app.config['FLASKY_MAIL_SUBJECT_PREFIX'] + subject,
+		sender=app.config['FLASKY_MAIL_SENDER'], recipients=[to])
+	msg.body = render_template(template + '.txt', **kwargs)
+	msg.html = render_template(template + '.html', **kwargs)
+	thr = Thread(target=send_async_email, args=[app, msg])
+	thr.start()
+	return thr
+```
+
+### 第七章 大型应用结构
+
+尽管一个小应用存储在一个脚本是非常便捷的，但是这种方法可扩展性不好。随着应用变得复杂，使用一个大的源文件变得非常有问题。
+
+不像大多数其他web框架，	Flask不会给大型项目强加一个具体的组织结构。
+
+组织应用的结构完全交给程序员来处理。在这一章，一个可能的方式组织一个大型应用在一个包或模块内。
+
+#### 项目结构
+
+```python
+|-flasky
+	|-app/
+		|-templates/
+		|-static/
+		|-main/
+			|-__init__.py
+			|-errors.py
+			|-forms.py
+			|-views.py
+		|-__init__.py
+		|-email.py
+		|-models.py
+|-migrations/
+|-tests/
+	|-__init__.py
+	|-test*.py
+|-venv/
+|-requirements.txt
+|-config.py
+|-manage.py
+```
+
+这个结构有4个顶级文件夹
+
+- Flask应用放在app文件夹
+- migrations文件夹包含数据库迁移脚本
+- 单元测试放在tests包内
+- venv文件夹包含Python的虚拟环境
+
+也有一些其他新的文件
+
+- requirement.txt列出了包的依赖
+- config.py存储配置设置
+- manage.py启动应用和其他应用任务
+
+为了帮助完全的理解这个结构，下面的部分描述了处理hello.py的过程
+
+#### 配置选项
+
+应用经常需要多个配置集合，最好的例子是在开发，测试，生产阶段使用不同的数据库。以便他们不会互相干扰
+
+*Example 7-2. config.py: Application configuration*
 
