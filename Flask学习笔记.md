@@ -1848,3 +1848,338 @@ def send_email(to, subject, template, **kwargs):
 
 *Example 7-2. config.py: Application configuration*
 
+```python
+import os
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+class Config:
+	SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard to guess string'
+	SQLALCHEMY_COMMIT_ON_TEARDOWN = True
+	FLASKY_MAIL_SUBJECT_PREFIX = '[Flasky]'
+	FLASKY_MAIL_SENDER = 'Flasky Admin <flasky@example.com>'
+	FLASKY_ADMIN = os.environ.get('FLASKY_ADMIN')
+    
+	@staticmethod
+	def init_app(app):
+		pass
+    
+class DevelopmentConfig(Config):
+	DEBUG = True
+	MAIL_SERVER = 'smtp.googlemail.com'
+	MAIL_PORT = 587
+	MAIL_USE_TLS = True
+	MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+	MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+	SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
+		'sqlite:///' + os.path.join(basedir, 'data-dev.sqlite')
+
+class TestingConfig(Config):
+	TESTING = True
+	SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
+		'sqlite:///' + os.path.join(basedir, 'data-test.sqlite')
+    
+    
+class ProductionConfig(Config):
+	SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+		'sqlite:///' + os.path.join(basedir, 'data.sqlite')
+        
+config = {
+	'development': DevelopmentConfig,
+	'testing': TestingConfig,
+	'production': ProductionConfig,
+	'default': DevelopmentConfig
+}
+```
+
+`Config`基础类包含了所有常用的配置，不同的子类定义了具体的配置。额外的配置可以按需添加。
+
+为了让配置更灵活更安全，一些变量可以可选的从环境变量中导入。例如，`SECRET_KEY`的值，因为它敏感的特性，可以在环境变量中设置，但是如果环境中没有定义它可以提供一个默认的值。
+
+在三个配置中`SQLALCHMEY_DATABASE_URI`被赋值了三个不同的值。这可以让应用运行在不同的配置，每个配置使用一个不同的数据库。
+
+配置类可以定义一个`init_app()`方法接收一个应用实例作为参数。这样具体配置的初始化可以被执行。对于现在来说，基础类`Config`实现了一个空的`init_app()`方法
+
+在配置脚本的底部，不同的配置文件被注册到了一个`config`字典中。其中一个配置被作为默认的注册。
+
+#### 应用包
+
+应用包是所有应用代码，模板和静态文件存在的地方。现在简单的叫`app`。当然你也可以定义一个应用具体的名称。*templates*和`static`文件夹是应用包的一部分。所以这两个文件夹被移动到了`app`内部。数据库模型和email支持函数也被移动到了这个包内。分别在它自己的模块`app/models.py`和`app/email.py`。
+
+##### 使用一个应用工厂
+
+如果应用在全局领域内被创建，没有办法动态的改变配置。脚本一运行，应用实例就已经被创建了。这对单元测试来说特别重要，因为有时必须运行应用在不同的配置文件下为了更好的测试覆盖率
+
+这个问题的解决方案就是推迟应用的创建，通过把它移动到一个工厂函数中。这不仅给了脚本时间去设置配置，也有能力去创建多个应用实例。在测试中这个是非常有用的。
+
+应用工厂在`app`包构造器中定义
+
+这个构造器导入当前使用的大部分Flask扩展，但是因为没有应用实例来初始化他们，构造器创建他们未初始化的，通过不传递参数给他们的构造器。
+
+`create_app()`是应用工厂，接收一个应用要使用的配置文件名。
+
+配置设置存储在config.py定义的类中可以使用`from_object()`方法直接导入到应用中。
+
+一般应用被创建和被配置，扩展可以被初始化。调用扩展的`init_app()`方法完成他们的初始化
+
+*Example 7-3. app/__init__.py: Application package constructor*
+
+```python
+from flask import Flask
+from flask_bootstrap import Bootstrap
+from flask_mail import Mail
+from flask_moment import Moment
+from flask_sqlalchemy import SQLAlchemy
+
+from config import config
+
+bootstrap = Bootstrap()
+mail = Mail()
+moment = Moment()
+db = SQLAlchemy()
+
+
+def create_app(config_name):
+    app = Flask(__name__)
+    app.config.from_object(config[config_name])
+    config[config_name].init_app(app)
+
+    bootstrap.init_app(app)
+    mail.init_app(app)
+    moment.init_app(app)
+    db.init_app(app)
+
+    # attach routes and custom error pages here
+
+    return app
+```
+
+工厂方法返回了创建的应用实例，但是注意由工厂方法创建的应用的当前状态是未完成的。因为他们没有路由和自定义错误页面处理器。这是下一部分的主题
+
+##### 使用蓝图实现应用功能
+
+现在应用在运行时创建，`app.route`装饰器只在`create_app()`被调用之后才存在，不过已经太迟了。像路由，错误页面处理器都会出现同样的问题，因为他们使用`app.errorhandler`装饰器定义。
+
+Flask提交了一个较好的方案叫*蓝图*。一个蓝图和应用相似，它也可以用来定义路由，不同之处在于蓝图中的路由会处在休眠状态，直到蓝图被注册到应用中。
+
+像应用一样，蓝图可以被定义在一个单独文件或者更复杂的多个模板在一个包内的结构。
+
+为了最大的灵活性，在应用包中的一个子包内创建来保存蓝图。
+
+示例7-4显示了包构造器来创建蓝图
+
+*Example 7-4. app/main/__init__.py: Blueprint creation*
+
+```python
+from flask import Blueprint
+main = Blueprint('main', __name__)
+from . import views, errors
+```
+
+蓝图通过实例化一个`Blueprint`类的对象创建。这个类的构造器接收两个必须的参数，蓝图的名称和蓝图所在的模块或包的名称。
+
+与应用程序一样，在大多数情况下，Python的`__name__`变量是正确的值
+
+应用的路由存储在包内的`app/main/views.py`模块，错误处理器存储在`app/main/errors.py`模块。导入这些模板使路由和错误处理器和蓝图关联。
+
+非常重要要注意，模块在`app/__init__.py`脚本的底部被导入。这样避免了循环依赖，因为`views.py`和`errors.py`需要被导入到`main`蓝图
+
+蓝图注册到应用在`create_app()`工厂函数中。
+
+```python
+def create_app(config_name):
+# ...
+from .main import main as main_blueprint
+app.register_blueprint(main_blueprint)
+return app
+```
+
+*Example 7-6. app/main/errors.py: Blueprint with error handlers*
+
+```python
+from flask import render_template
+from . import main
+
+@main.app_errorhandler(404)
+def page_not_found(e):
+	return render_template('404.html'), 404
+
+@main.app_errorhandler(500)
+def internal_server_error(e):
+	return render_template('500.html'), 500
+```
+
+当在一个蓝图内部写错误处理器的不同地方在于，如果`errorhandler`装饰器被使用，处理器只会被蓝图内部产生的错误有效。
+
+为了安装应用范围的错误处理器，必须使用`app_errorhandler`
+
+*Example 7-7. app/main/views.py: Blueprint with application routes*
+
+```python
+from datetime import datetime
+from flask import render_template, session, redirect, url_for
+from . import main
+from .forms import NameForm
+from .. import db
+from ..models import User
+
+@main.route('/', methods=['GET', 'POST'])
+def index():
+	form = NameForm()
+	if form.validate_on_submit():
+		# ...
+		return redirect(url_for('.index'))
+	return render_template('index.html',form=form,name=session.get('name'),known=session.get('known', False),current_time=datetime.utcnow())
+```
+
+在蓝图内部写视图函数有两个主要的不同的地方。
+
+第一，像之前错误处理器一样，路由装饰器来自于蓝图。
+
+第二个不同的地方是`url_for()`函数的用法。
+
+这个函数的第一个参数是路由的端点名，对于基于应用的路由来说，默认的端点名是视图函数的名称。
+
+使用蓝图的不同地方在于Flask 为所有来自蓝图的端点使用了一个命名空间。所以多个蓝图可以使用相同的端点名定义视图函数而不会产生冲突。
+
+命名空间是蓝图的名称(蓝图构造器的第一个参数)，所以`index()`视图函数使用端点名`main.index`注册，它的URL可以使用`url_for('main.index')`获得。
+
+`url_for()`函数也支持在蓝图中短格式的端点名，蓝图的名称被忽略。像`url_for('.index')`。使用这个符号，蓝图为当前请求所使用，这意味着在同一个蓝图内重定向，可以使用短格式。跨蓝图的重定向必须使用命令空间的端点名。
+
+##### 启动脚本
+
+在顶层文件夹的`manage.py`	文件用来启动应用
+
+*Example 7-8. manage.py: Launch script*
+
+```python
+#!/usr/bin/env python3
+import os
+from app import create_app, db
+from app.models import User, Role
+from flask.ext.script import Manager, Shell
+from flask.ext.migrate import Migrate, MigrateCommand
+
+app = create_app(os.getenv('FLASK_CONFIG') or 'default')
+manager = Manager(app)
+migrate = Migrate(app, db)
+
+def make_shell_context():
+	return dict(app=app, db=db, User=User, Role=Role)
+manager.add_command("shell", Shell(make_context=make_shell_context))
+manager.add_command('db', MigrateCommand)
+
+if __name__ == '__main__':
+manager.run()
+```
+
+脚本通过创建一个应用开始，如果环境变量FLASK_CONFIG被定义，使用它的配置，如果没有定义，使用默认的配置。
+
+Flask-Script，Flask-Migrate和自定义Python shell上下文接着被初始化。
+
+##### 需求文件
+
+应用必须包含一个需求文件，记录了所有包依赖和对应的版本号。在虚拟环境需要在多个机器上生成的情况下是非常重要的。
+
+这个文件可以使用pip的命令自动生成
+
+```shell
+(venv) $ pip freeze >requirements.txt
+```
+
+这是一个好主意，每次一个包被安装或更新的时候刷新该文件。
+
+```shell
+Flask==0.10.1
+Flask-Bootstrap==3.0.3.1
+Flask-Mail==0.9.0
+Flask-Migrate==1.1.0
+Flask-Moment==0.2.0
+Flask-SQLAlchemy==1.0
+Flask-Script==0.6.6
+Flask-WTF==0.9.4
+Jinja2==2.7.1
+Mako==0.9.1
+MarkupSafe==0.18
+SQLAlchemy==0.8.4
+WTForms==1.0.5
+Werkzeug==0.9.4
+alembic==0.6.2
+blinker==1.3
+itsdangerous==0.23
+```
+
+当你需要构建一个完美的虚拟环境复制。你可以创建一个新的虚拟环境，然后运行下面的命令
+
+```shell
+(venv) $ pip install -r requirements.txt
+```
+
+##### 单元测试
+
+*Example 7-9. tests/test_basics.py: Unit tests*
+
+```python
+import unittest
+from flask import current_app
+from app import create_app, db
+
+class BasicsTestCase(unittest.TestCase):
+	def setUp(self):
+		self.app = create_app('testing')
+		self.app_context = self.app.app_context()
+		self.app_context.push()
+		db.create_all()
+        
+	def tearDown(self):
+		db.session.remove()
+		db.drop_all()
+		self.app_context.pop()
+        
+	def test_app_exists(self):
+		self.assertFalse(current_app is None)
+        
+	def test_app_is_testing(self):
+		self.assertTrue(current_app.config['TESTING'])
+```
+
+测试使用来自Python标准库的标准`unittest`包编写的。`setUp()`和`tearDown()`方法在每次测试之前和之后执行。
+
+任何方法有一个以`test_`开头的名字都会被当做测试执行。
+
+为了运行单元测试，一个自定义的命令可以被增加到`manage.py`脚本
+
+*Example 7-10. manage.py: Unit test launcher command*
+
+```python
+@manager.command
+def test():
+	"""Run the unit tests."""
+	import unittest
+	tests = unittest.TestLoader().discover('tests')
+	unittest.TextTestRunner(verbosity=2).run(tests)
+```
+
+`manage.command`装饰器可以让实现一个自定义命令更简单。被装饰的函数的名字被用作命令名
+
+单元测试可以像下面一样被执行
+
+```shell
+(venv) $ python manage.py test
+test_app_exists (test_basics.BasicsTestCase) ... ok
+test_app_is_testing (test_basics.BasicsTestCase) ... ok
+.----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+OK
+```
+
+##### 数据库建立
+
+重构的应用使用了不同的数据库。
+
+数据库的表可以被创建或更新到最新的版本使用一个命令：
+
+```shell
+(venv) $ python manage.py db upgrade
+```
+
