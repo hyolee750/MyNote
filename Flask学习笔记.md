@@ -3070,3 +3070,174 @@ class UserModelTestCase(unittest.TestCase):
 		self.assertFalse(u.can(Permission.FOLLOW))
 ```
 
+### 第十章 用户简介
+
+在这一章，实现了Flasky的用户简介。所有的社交网站都会给他们的用户一个简介页面，显示用户在网站的参数总结。用户可以通过分享他们主页的URL广告他们在网站上的存在。所以URL要短和容易记住是非常重要的。
+
+#### 简介信息
+
+为了让用户的主页更有趣，用户的一些额外信息可以被记录
+
+*Example 10-1. app/models.py: User information fields*
+
+```python
+class User(UserMixin, db.Model):
+# ...
+name = db.Column(db.String(64))
+location = db.Column(db.String(64))
+about_me = db.Column(db.Text())
+member_since = db.Column(db.DateTime(), default=datetime.utcnow)
+last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
+```
+
+新增加的字段存储了用户的真实姓名，地理位置，自我编写的描述，注册日期和上次访问的时间。`about_me`字段被赋予了`db.Text()`类型。`db.String`和`db.Text`的不同之处是`db.Text`不需要最大长度。
+
+两个时间戳被赋予了当前时间为默认值。注意到`datetime.utcnow`没有`()`。这是因为`db.Column()`的`default`参数可以接收一个函数作为默认值。所以每次需要生成一个默认值，这个函数被调用来产生它。
+
+`last_ssen`字段也是在创建时根据当前时间来初始化。但是它需要在每次用户访问网站的时候刷新，在User类中的方法可以完成这个更新
+
+*Example 10-2. app/models.py: Refresh last visit time of a user*
+
+```python
+class User(UserMixin, db.Model):
+# ...
+def ping(self):
+	self.last_seen = datetime.utcnow()
+	db.session.add(self)
+```
+
+`ping()`方法必须在每次用户的请求被收到之前调用。因为在auth蓝图中的`before_app_request`处理器可以在每次请求之前运行，它可以很容易的完成这个要求。
+
+*Example 10-3. app/auth/views.py: Ping logged-in user*
+
+```python
+@auth.before_app_request
+def before_request():
+	if current_user.is_authenticated:
+		current_user.ping()
+		if not current_user.confirmed \
+				and request.endpoint[:5] != 'auth.':
+			return redirect(url_for('auth.unconfirmed'))
+```
+
+#### 用户简介页面
+
+为每个用户创建一个简介页面没有任何挑战。
+
+*Example 10-4. app/main/views.py: Profile page route*
+
+```python
+@main.route('/user/<username>')
+def user(username):
+	user = User.query.filter_by(username=username).first()
+	if user is None:
+		abort(404)
+	return render_template('user.html', user=user)
+```
+
+这个路由被增加到了main蓝图。对于一个名叫John的用户来说，它的主页将会在`http://localhost:5000/user/john`。URL中的用户名会在数据库搜索，如果发现，使用它作为参数渲染模板，如果没找到，将会返回404。
+
+*Example 10-5. app/templates/user.html: User profile template*
+
+```html
+{% block page_content %}
+<div class="page-header">
+	<h1>{{ user.username }}</h1>
+	{% if user.name or user.location %}
+	<p>
+		{% if user.name %}{{ user.name }}{% endif %}
+		{% if user.location %}
+			From <a href="http://maps.google.com/?q={{ user.location }}">
+				{{ user.location }}
+			</a>
+		{% endif %}
+	</p>
+	{% endif %}
+	{% if current_user.is_administrator() %}
+	<p><a href="mailto:{{ user.email }}">{{ user.email }}</a></p>
+	{% endif %}
+	{% if user.about_me %}<p>{{ user.about_me }}</p>{% endif %}
+	<p>
+		Member since {{ moment(user.member_since).format('L') }}.
+		Last seen {{ moment(user.last_seen).fromNow() }}.
+	</p>
+</div>
+{% endblock %}
+```
+
+这个模板有一些非常有趣的实现细节：
+
+- `name`和`location`在单个`<p>`元素内渲染。只有当至少一个字段被定义`<p>`元素才会被创建。
+- 用户的`Location`字段被渲染成一个链接到一个谷歌地图查询
+- 如果登录的用户是管理员，邮件被显示，作为一个*mailto*链接被渲染
+
+因为大多数用户想要容易的访问他们自己的主页，一个链接可以被增加到导航栏。
+
+*Example 10-6. app/templates/base.html*
+
+```html
+{% if current_user.is_authenticated() %}
+<li>
+	<a href="{{ url_for('main.user', username=current_user.username) }}">
+		Profile
+	</a>
+</li>
+{% endif %}
+```
+
+为一个主页链接使用一个判断条件是非常有必要的，因为导航栏也被为未授权的用户渲染。主页链接会被跳过。
+
+#### 主页编辑
+
+有两个不同的使用情况与编辑用户主页相关。最明显的是用户需要访问页面，他们可以输入他们自己的信息在他们的主页显示。一个不太明显的但是也是重要的需求是让管理员编辑任何用户的主页。
+
+##### 用户级别的主页编辑
+
+*Example 10-7. app/main/forms.py: Profile edit form*
+
+```python
+class EditProfileForm(Form):
+    name = StringField('Real name', validators=[Length(0, 64)])
+    location = StringField('Location', validators=[Length(0, 64)])
+    about_me = TextAreaField('About me')
+    submit = SubmitField('Submit')
+```
+
+注意到在这个表单所有的字段都是可选的。长度校验器允许长度为0
+
+*Example 10-8. app/main/views.py: Profile edit route*
+
+```python
+@main.route('/edit-profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = EditProfileForm()
+    if form.validate_on_submit():
+        current_user.name = form.name.data
+        current_user.location = form.location.data
+        current_user.about_me = form.about_me.data
+        db.session.add(current_user)
+        flash('Your profile has been updated.')
+        return redirect(url_for('.user', username=current_user.username))
+    form.name.data = current_user.name
+    form.location.data = current_user.location
+    form.about_me.data = current_user.about_me
+    return render_template('edit_profile.html', form=form)
+```
+
+这个视图函数在显示表单之前为所有的字段设置初始值。对于任意给定的字段，通过赋值到`form.<field-name>.data`来完成。当`form.validate_on_submit()`是`False`，这个表单中的三个字段从`current_user`响应的字段初始化。当表单被提交后，表单的data属性字段包含更新后的值。
+
+为了更容易的到达这个页面，可以在配置页面直接添加一个链接
+
+*Example 10-9. app/templates/user.html: Profile edit link*
+
+```html
+{% if user == current_user %}
+<a class="btn btn-default" href="{{ url_for('.edit_profile') }}">
+	Edit Profile
+</a>
+{% endif %}
+```
+
+条件包裹这个链接只会当用户查他们的主页 才会显示
+
