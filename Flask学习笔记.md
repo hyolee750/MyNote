@@ -2806,3 +2806,267 @@ def unconfirmed():
 
 如果三个条件都被满足了，接着重定向到一个新的`/auth/unconfirmed`路由，显示一页关于账户确认的信息
 
+这个页面只显示给未确认的用户看，渲染一个模板告诉用户如何确认账户并提供一个链接请求一个新的确认邮件，这种情况下原来的邮件就失效了。
+
+重新发送确认邮件的路由如下所示：
+
+*Example 8-23. app/auth/views.py: Resend account confirmation email*
+
+```python
+@auth.route('/confirm')
+@login_required
+def resend_confirmation():
+    token = current_user.generate_confirmation_token()
+    send_email(current_user.email, 'Confirm Your Account', 'auth/email/confirm', user=current_user, token=token)
+    flash('A new confirmation email has been sent to you by email.')
+    return redirect(url_for('main.index'))
+
+```
+
+这个路由使用`current_user`重复了在注册路由中所做的事情，登录的用户作为目标用户，这个路由也被`login_required`所保护确保当它被访问时，制造这个请求的用户被知道。
+
+#### 账户管理
+
+应用有账户的用户可能需要时不时的改变他们的账户，下列任务可以使用这一章的技术增加到认证蓝图中：
+
+- 密码更新
+
+  具有安全意识的用户可能想要在一段时间内就改变他们的密码。这是一个容易实现的功能，因为只要用户登录了，这是安全的显示一个表单求旧密码和一个新密码去替换它。
+
+- 密码重置
+
+  为了避免用户被锁在应用之外，当他们忘记了密码。可以提供一个密码重置选项。为了以安全的方式实现密码重置，有必要使用和用户确认账户相似的token。当一个用户请求一个密码重置，有一个重置token的邮件被发送到注册的邮件地址。用户在邮件中点击链接，token校验通过以后，显示一个表单让用户输入新密码
+
+- 邮件地址改变
+
+  用户可以被给予一个改变注册邮箱的功能，但是在新邮箱被接受之前它必须要被一个确认邮件校验。为了使用这个功能，用户在表单中输入新的邮件，为了确认邮件地址，一个token被发送到那个地址。当服务器接收返回的token，它可以更新用户对象。在服务器等待接收token时，它可以存储新的邮件地址到一个新的数据库字段，等待新的邮件地址。或者它可以存储地址在token中，使用一个id标识。
+
+### 第九章 用户角色
+
+并不是所有的web应用的用户都是同种方式创建的。在大多数应用中，一小部分用户是被信任的，具有额外的权限来让应用运行顺畅。管理员就是最好的例子，但是在大多数情况下，中等水平权限的用户像内容版主也会存在。
+
+在应用中有多种方式实现角色。恰当的方法绝大程度上依赖需要支持多少角色，他们的作用是什么样的。例如，一个简单的应用可能只有两个角色，一个为普通用户，另一个为管理员。在这种情况下，在`User`模型有一个`is_adminstrator`布尔值字段就可以满足所有的需求。一个更复杂的应用可能需要额外的在普通用户和管理员角色之间的拥有不同级别权限的角色。在一些应用中，讨论离散的角色甚至是没有意义的，相反，给用户一个权限的集合可能是正确的方式。
+
+在这一章实现的用户角色是离散角色和权限之间的混合。用户被赋值一个离散的角色，但是角色是以权限的名义定义的。
+
+#### 角色的数据库表述
+
+*Example 9-1. app/models.py: Role permissions*
+
+```python
+class Role(db.Model):
+	__tablename__ = 'roles'
+	id = db.Column(db.Integer, primary_key=True)
+	name = db.Column(db.String(64), unique=True)
+	default = db.Column(db.Boolean, default=False, index=True)
+	permissions = db.Column(db.Integer)
+	users = db.relationship('User', backref='role', lazy='dynamic')
+```
+
+如果只有一个角色`default`字段应该被设置为True，其他情况设置成False。标记为默认的角色会在新用户注册的时候赋值给他。
+
+模型第二个额外的字段是`permissions`字段，是一个整数将会被用作位标记。每个任务都会被赋值一个位位置，对于每个角色，被角色允许的任务都会把他们的位设置为1
+
+*Table 9-1. Application permissions*
+
+| 任务名称     | 位值                  | 描述             |
+| -------- | ------------------- | -------------- |
+| 关注用户     | `0b00000001 (0x01)` | 关注其他用户         |
+| 评论其他人的文章 | `0b00000010 (0x02)` | 评论由其他人写的文章     |
+| 写文章      | `0b00000100 (0x04)` | 写原始文章          |
+| 温和评论     | `0b00001000 (0x08)` | 禁止别人发表的令人反感的评论 |
+| 管理员访问    | `0b10000000 (0x80)` | 管理员访问网站        |
+
+注意到总共8位被分配给了任务，到目前为止只有5个被使用了。剩下的3个留作以后进行扩展
+
+*Example 9-2. app/models.py: Permission constants*
+
+```python
+class Permission:
+	FOLLOW = 0x01
+	COMMENT = 0x02
+	WRITE_ARTICLES = 0x04
+	MODERATE_COMMENTS = 0x08
+	ADMINISTER = 0x80
+```
+
+*Table 9-2. User roles*
+
+| 用户角色 | 权限                  | 描述                              |
+| ---- | ------------------- | ------------------------------- |
+| 匿名   | `0b00000000 (0x00)` | 没有登录的用户，只能进行只读的访问               |
+| 普通用户 | `0b00000111 (0x07)` | 基本权限，如写文章，评论和关注其他用户，这个是新用户的默认角色 |
+| 版主   | `0b00001111 (0x0f)` | 增加了禁用反感或不恰当的评论                  |
+| 管理员  | `0b11111111 (0xff)` | 完全访问，包括改变其他用户的角色的权限             |
+
+使用权限组织角色，可以让你在以后使用不同的权限组合来增加新的角色。
+
+手动添加角色到数据库是耗时的和容易出错的。相反，使用一个类方法将被增加到`Role`类来完成这个目的。
+
+*Example 9-3. app/models.py: Create roles in the database*
+
+```python
+class Role(db.Model):
+# ...
+@staticmethod
+	def insert_roles():
+        roles = {
+            'User': (Permission.FOLLOW |
+                     Permission.COMMENT |
+                     Permission.WRITE_ARTICLES, True),
+            'Moderator': (Permission.FOLLOW |
+                          Permission.COMMENT |
+                          Permission.WRITE_ARTICLES |
+                          Permission.MODERATE_COMMENTS, False),
+            'Administrator': (0xff, False)
+        }
+		for r in roles:
+			role = Role.query.filter_by(name=r).first()
+				if role is None:
+					role = Role(name=r)
+				role.permissions = roles[r][0]
+				role.default = roles[r][1]
+				db.session.add(role)
+			db.session.commit()
+```
+
+`insert_roles()`函数不会直接创建新的角色对象。相反，它试图根据名称来获取已经存在的角色并更新他们。一个新角色对象只在角色名还没有存在于数据库才会创建。这样做以便将来需要改变的时候角色列表可以更新。为了增加一个新的角色，或者改变一个角色的权限，改变roles数组，并返回这个函数。注意到匿名角色不需要在数据库创建，因为它被设计用来代表那些还不在数据库的用户。
+
+为了将这些角色保存到数据库，可以使用一个shell会话：
+
+```shell
+(venv) $ python manage.py shell
+>>> Role.insert_roles()
+>>> Role.query.all()
+[<Role u'Administrator'>, <Role u'User'>, <Role u'Moderator'>]
+```
+
+#### 赋予角色
+
+当用户在应用中注册一个新账户时，正确角色应该赋予他们。对大多数用户来说，在注册期间赋予的角色将会是`User`角色。因为这个角色被标记为默认角色。只有一个例外是管理员，在开始的时候需要被赋予`Administrator`角色。这个用户由一个存储在FLASKY_ADMIN配置变量中的邮件地址定义。所以只要这个邮件出现在注册请求，它就会给赋予正确的角色。
+
+*Example 9-4. app/models.py: Define a default role for users*
+
+```python
+class User(UserMixin, db.Model):
+	# ...
+	def __init__(self, **kwargs):
+		super(User, self).__init__(**kwargs)
+		if self.role is None:
+			if self.email == current_app.config['FLASKY_ADMIN']:
+				self.role = Role.query.filter_by(permissions=0xff).first()
+			if self.role is None:
+				self.role = Role.query.filter_by(default=True).first()
+			# ...
+```
+
+`User`构造器首先调用基类的构造器。之后如果对象没有角色被定义，根据邮件地址设置为管理员或默认角色。
+
+#### 角色校验
+
+为了简化角色和权限的实现，一个帮助方法被添加到`User`模型来检查一个特定的权限是否存在。
+
+*Example 9-5. app/models.py: Evaluate whether a user has a given permission*
+
+```python
+from flask.ext.login import UserMixin, AnonymousUserMixin
+
+class User(UserMixin, db.Model):
+	# ...
+	def can(self, permissions):
+		return self.role is not None and \
+			(self.role.permissions & permissions) == permissions
+        
+	def is_administrator(self):
+		return self.can(Permission.ADMINISTER)
+    
+class AnonymousUser(AnonymousUserMixin):
+	def can(self, permissions):
+		return False
+    
+	def is_administrator(self):
+		return False
+
+login_manager.anonymous_user = AnonymousUser
+```
+
+添加到`User`模型的`can()`方法在被请求的权限和被赋予的角色的权限进行了按位与操作。该方法如果被请求的位在角色的权限里就会返回True，意味着用户应该被允许执行任务。检查管理员权限是非常常用的，所以以单独的`is_administrator()`方法实现。
+
+为了一致性，创建了一个自定义的`AnonymousUser`类实现了`can()`和`is_administrator()`方法。这个对象继承Flask-Login的`AnonymousUserMixin`类，被注册作为类的对象被赋值给`current_user`，当用户没有登录的时候。这会让应用自由的调用`current_user.can()`和`current_user.is_administrator()`方法而不用先检查用户是否登录。
+
+对于一个完整的视图函数需要对只有特定权限的用户可用的情况，可以使用一个自定义的装饰器。*Example 9-6*实现了两个装饰器，一个用来检查普通权限，一个用来检查管理员权限。
+
+*Example 9-6. app/decorators.py: Custom decorators that check user permissions*
+
+```python
+from functools import wraps
+from flask import abort
+from flask_login import current_user
+from .models import Permission
+
+
+def permission_required(permission):
+    def decorator(f):
+        @wraps(f)
+        def decorator_function(*args, **kwargs):
+            if not current_user.can(permission):
+                abort(403)
+            return f(*args, **kwargs)
+
+        return decorator_function
+
+    return decorator
+
+
+def admin_required(f):
+    return permission_required(Permission.ADMINISTER)(f)
+```
+
+这些装饰器由来自Python标准库的*functools*包的帮助来构建的。当当前用户没有被请求的权限，返回一个错误码403，代表`Forbidden`HTTP错误。所以现在403错误页面也需要被添加进来。
+
+下面是两个例子演示了装饰器的用法
+
+```python
+from decorators import admin_required, permission_required
+
+@main.route('/admin')
+@login_required
+@admin_required
+def for_admins_only():
+	return "For administrators!"
+
+@main.route('/moderator')
+@login_required
+@permission_required(Permission.MODERATE_COMMENTS)
+def for_moderators_only():
+	return "For comment moderators!"
+```
+
+权限可能也需要在模板中检查，所以`Permission`类和它所有的位常量都需要被访问。为了避免在每个`render_template()`调用中都添加一个模板参数，可以使用一个上下文处理器。上下文处理器使变量对所有的模板全局可用。
+
+*Example 9-7. app/main/__init__.py: Adding the Permission class to the template context*
+
+```python
+@main.app_context_processor
+def inject_permissions():
+	return dict(Permission=Permission)
+```
+
+新的角色和权限可以在单元测试中进行测试。
+
+*Example 9-8. tests/test_user_model.py: Unit tests for roles and permissions*
+
+```python
+class UserModelTestCase(unittest.TestCase):
+	# ...
+	def test_roles_and_permissions(self):
+	Role.insert_roles()
+	u = User(email='john@example.com', password='cat')
+		self.assertTrue(u.can(Permission.WRITE_ARTICLES))
+		self.assertFalse(u.can(Permission.MODERATE_COMMENTS))
+        
+	def test_anonymous_user(self):
+		u = AnonymousUser()
+		self.assertFalse(u.can(Permission.FOLLOW))
+```
+
