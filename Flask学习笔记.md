@@ -3241,3 +3241,189 @@ def edit_profile():
 
 条件包裹这个链接只会当用户查他们的主页 才会显示
 
+##### 管理员级别的主页编辑
+
+来自管理员的主页编辑要比普通用户的主页编辑更复杂。除了三个信息字段，这个表单允许管理员编辑用户的邮件，用户名，确认状态和角色。
+
+*Example 10-10. app/main/forms.py: Profile editing form for administrators*
+
+```python
+class EditProfileAdminForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Length(1, 64), Email()])
+    username = StringField('Username',
+                           validators=[DataRequired(),
+                                       Length(1, 64),
+                                       Regexp('^[A-Za-z][A-Za-z0-9_.]*$', 0,
+                                              message='Usernames must have only letters,numbers,dots or underscores')])
+    confirmed = BooleanField('Confirmed')
+    role = SelectField('Role', coerce=int)
+    name = StringField('Real name', validators=[Length(0, 64)])
+    location = StringField('Location', validators=[Length(0, 64)])
+    about_me = TextAreaField('About me')
+    submit = SubmitField('Submit')
+
+    def __init__(self, user, *args, **kwargs):
+        super(EditProfileAdminForm, self).__init__(*args, **kwargs)
+        self.role.choices = [(role.id, role.name) for role in Role.query.order_by(Role.name).all()]
+        self.user = user
+
+    def validate_email(self, field):
+        if field.data != self.user.email and User.query.filter_by(email=field.data).first():
+            raise ValidationError('Email already registered.')
+
+    def validate_username(self, field):
+        if field.data != self.user.username and User.query.filter_by(username=field.data).first():
+            raise ValidationError('Username already in use.')
+```
+
+`SelectField`是WTForm提供的HTML元素`<select>`的包装器，实现了一个下拉列表，用来在这个表单中选择一个用户角色，一个`SelectField`的实例必须把项设置到它的`choices`属性。他们必须被作为一个元组的列表，每个元组包含两个值，一个是项的id，另外一个是作为字符串在下拉框显示的文本。`choices`列表在表单的构造器进行设置，它的值从数据库获取，每个元组的ID被设置成每个角色的id，因为他们都是整数，所以一个`coerce=int`的参数被增加到`SelectField`构造器，以便该字段的值被作为整数存储而不是默认的字符串形式。
+
+`email`和`username`字段像在认证表单中的同种方式构造，但是校验需要仔细的处理。为了实现这个逻辑，表单的构造器接收用户对象作为参数，并把它作为一个成员变量保存，稍后会在自定义校验方法中使用。
+
+*Example 10-11. app/main/views.py: Profile edit route for administrators*
+
+```python
+@main.route('/edit-profile/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_profile_admin(id):
+    user = User.query.get_or_404(id)
+    form = EditProfileAdminForm()
+    if form.validate_on_submit():
+        user.email = form.email.data
+        user.username = form.username.data
+        user.confirmed = form.confirmed.data
+        user.role = Role.query.get(form.role.data)
+        user.name = form.name.data
+        user.location = form.location.data
+        user.about_me = form.about_me.data
+        db.session.add(user)
+        flash('The profile has been updated.')
+        return redirect(url_for('.user', username=user.username))
+    form.email.data = user.email
+    form.username.data = user.username
+    form.confirmed.data = user.confirmed
+    form.role.data = user.role_id
+    form.name.data = user.name
+    form.location.data = user.location
+    form.about_me.data = user.about_me
+    return render_template('edit_profile.html', form=form, user=user)
+```
+
+这个路由和普通用户的路由有大部分都是相同的。在这个视图函数，根据用户id获取用户，所以可以使用Flask-SQLAlchemy的`get_or_404()`便捷函数，如果id是无效的，请求将会返回一个错误码404.
+
+`SelectField`用来选择用户角色需要进一步学习。当设置这个字段的初始值时，`role_id`被赋值到`field.role.data`，因为在`choices`属性中设置的元组列表使用数字id来引用每个选项。当表单提交时，id从字段data属性中提取出来，然后根据它的id去查询对应的角色对象。`coerce=int`参数声明确保data属性的字段是一个整数。
+
+为了链接到这个页面，用户主页增加了另外一个按钮
+
+*Example 10-12. app/templates/user.html: Profile edit link for administrator*
+
+```html
+{% if current_user.is_administrator() %}
+<a class="btn btn-danger"
+		href="{{ url_for('.edit_profile_admin', id=user.id) }}">
+	Edit Profile [Admin]
+</a>
+{% endif %}
+```
+
+这个按钮被渲染成不同的Bootstrap样式来引起注意。如果登录用户是一个管理员，判断条件可以让按钮出现。
+
+#### 用户头像
+
+用户主页的外观可以通过实现用户的图片来改善。在这一部分，你将会学习到如何使用Gravatar增加用户头像。Gravatar使用邮件地址关联头像。用户在`http://gravatar.com`注册一个账户，然后上传他们的图片，为了根据特定的邮件地址生成头像URL。它的MD5哈希值被计算：
+
+```shell
+(venv) $ python
+>>> import hashlib
+>>> hashlib.md5('john@example.com'.encode('utf-8')).hexdigest()
+'d4c74594d841139328695756648b6bd6'
+```
+
+头像URL通过添加MD5哈希值到URL`http://www.gravatar.com/avatar/`或`https://secure.gravatar.com/avatar/`来生成。例如，你可以在才能的浏览器地址栏输入`http://www.gravatar.com/avatar/d4c74594d841139328695756648b6bd6`来获取`john@example.com`邮件地址的头像。如果邮件地址没有一个头像注册会生成一个默认的头像。
+
+这个URL的查询参数可以包括几种参数配置头像图片的特性。
+
+*Table 10-1. Gravatar query string arguments*
+
+| 参数名  | 描述                                       |
+| ---- | ---------------------------------------- |
+| `s`  | 图片大小，以像素为单位                              |
+| `r`  | 图片评级，选项是`g`,`pg`,`r`,`x`                 |
+| `d`  | 默认图片生成器，选项是404或一个URL指向默认的图片，图片生成器`mm`,`identicon`,`monsterid`,`wavatar`,`retro`,`blank` |
+| `fd` | 强制使用默认头像                                 |
+
+如何构造一个Gravatar URL的技术可以被增加到`User`模型
+
+*Example 10-13. app/models.py: Gravatar URL generation*
+
+```python
+import hashlib
+from flask import request
+class User(UserMixin, db.Model):
+    # ...
+	def gravatar(self, size=100, default='identicon', rating='g'):
+		if request.is_secure:
+			url = 'https://secure.gravatar.com/avatar'
+		else:
+			url = 'http://www.gravatar.com/avatar'
+		hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+		return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
+			url=url, hash=hash, size=size, default=default, rating=rating)
+```
+
+该实现选择标准或安全的Gravatar基础URL来匹配客户端请求的安全性。avatar URL由基础URL，用户邮件地址的MD5哈希值，全部都是默认值的参数来生成。通过这个实现，很容易的在Python shell中生成一个头像URL：
+
+```shell
+(venv) $ python manage.py shell
+>>> u = User(email='john@example.com')
+>>> u.gravatar()
+'http://www.gravatar.com/avatar/d4c74594d84113932869575bd6?s=100&d=identicon&r=g'
+>>> u.gravatar(size=256)
+'http://www.gravatar.com/avatar/d4c74594d84113932869575bd6?s=256&d=identicon&r=g'
+```
+
+`gravatar()`方法也可以在Jinja2的模板中调用。
+
+*Example 10-14. app/tempaltes/user.html: Avatar in profile page*
+
+```html
+...
+<img class="img-rounded profile-thumbnail" src="{{ user.gravatar(size=256) }}">
+...
+```
+
+使用一个相似的方法，基本模板在导航栏增加了一个登录用户的缩略图片。为了更好的在页面中格式化头像图片，可以使用自定义的CSS类。
+
+头像的生成需要一个MD5哈希值被生成，是一个CPU密集型操作。如果一个页面有非常多的头像需要生成，那么计算工作可以是有意义的。因为一个用户的MD5哈希值会保持常量，它可以被缓存在`User`模型。
+
+*Example 10-15. app/models.py: Gravatar URL generation with caching of MD5 hashes*
+
+```python
+class User(UserMixin, db.Model):
+	# ...
+	avatar_hash = db.Column(db.String(32))
+    
+	def __init__(self, **kwargs):
+		# ...
+		if self.email is not None and self.avatar_hash is None:
+			self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+            
+	def change_email(self, token):
+		# ...
+		self.email = new_email
+		self.avatar_hash = hashlib.md5(
+		self.email.encode('utf-8')).hexdigest()
+		db.session.add(self)
+		return True
+    
+	def gravatar(self, size=100, default='identicon', rating='g'):
+		if request.is_secure:
+			url = 'https://secure.gravatar.com/avatar'
+		else:
+			url = 'http://www.gravatar.com/avatar'
+		hash = self.avatar_hash or hashlib.md5(self.email.encode('utf-8')).hexdigest()
+		return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(url=url, hash=hash, size=size, default=default, rating=rating)
+```
+
+在模型初始化期间，哈希值从邮件被计算并存储，在用户更新邮件地址事件中，哈希值被重新计算。如果模型可用的话`gravatar()`方法使用来自模型的哈希值，如果不可用，它会像之前一样根据邮件地址生成哈希值。
