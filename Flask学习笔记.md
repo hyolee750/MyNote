@@ -3427,3 +3427,568 @@ class User(UserMixin, db.Model):
 ```
 
 在模型初始化期间，哈希值从邮件被计算并存储，在用户更新邮件地址事件中，哈希值被重新计算。如果模型可用的话`gravatar()`方法使用来自模型的哈希值，如果不可用，它会像之前一样根据邮件地址生成哈希值。
+
+### 第十一章 博客文章
+
+这一章专注于实现Flask的主要功能，就是允许用户读和写文章。这里你将会学到一些新的技术用来重用模板，分页和使用富文本。
+
+#### 文章提交和显示
+
+为了支持文章，一个新的代表他们的数据库模型是必须的。
+
+*Example 11-1. app/models.py: Post model*
+
+```python
+class Post(db.Model):
+    __tablename__ = 'posts'
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    
+class User(UserMixin, db.Model):
+    # ...
+    posts = db.relationship('Post', backref='author', lazy='dynamic')
+```
+
+一个博客文章由主体，时间戳和一个与用户多对一的关系构成。`body`字段由类型`db.Text`定义，所以它的长度没有限制。
+
+表单将会在应用主页显示可以让用户写博客文章。这个表单是简单的，它只包含了一个可以输入博客文章的文本域和一个提交按钮
+
+*Example 11-2. app/main/forms.py: Blog post form*
+
+```python
+class PostForm(Form):
+	body = TextAreaField("What's on your mind?", validators=[Required()])
+	submit = SubmitField('Submit')
+```
+
+`index()`视图函数处理表单和传递博客文章列表到模板
+
+*Example 11-3. app/main/views.py: Home page route with a blog post*
+
+```python
+@main.route('/', methods=['GET', 'POST'])
+def index():
+    form = PostForm()
+    if current_user.can(Permission.WRITE_ARTICLES) and form.validate_on_submit():
+        post = Post(body=form.body.data, author=current_user._get_current_object())
+        db.session.add(post)
+        return redirect(url_for('.index'))
+    posts = Post.query.order_by(Post.timestamp.desc()).all()
+    return render_template('index.html', form=form, posts=posts)
+```
+
+这个视图函数传递表单和完整的博客文章列表到模板。文章列表以它们的时间戳降序排序。博客文章表单以正常的方式处理，当收到一个有效的提交之后创建一个`Post`实例，在允许新的文章之前需要检查当前用户是否有写文章的权限。
+
+注意到新文章对象的`author`属性由表达式`current_user._get_current_object()`设置。`current_user`变量来自于Flask-Login，像所有的上下文对象一样，被作为一个本地线程代理对象实现。这个对象表现的像普通用户，但是事实上是一个包装器包含了实际用户在内。数据库需要一个真实的用户对象，通过调用`_get_current_object()`获取。
+
+表单在`index.html`模板下中的问候之后渲染。紧跟着博客文章。博客文章列表首先会试图创建一个博客文章时间流，以时间由近到远的顺序列出数据库中所有的博客文章
+
+*Example 11-4. app/templates/index.html: Home page template with blog posts*
+
+```html
+% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+...
+<div>
+	{% if current_user.can(Permission.WRITE_ARTICLES) %}
+	{{ wtf.quick_form(form) }}
+	{% endif %}
+</div>
+<ul class="posts">
+	{% for post in posts %}
+	<li class="post">
+		<div class="profile-thumbnail">
+			<a href="{{ url_for('.user', username=post.author.username) }}">
+				<img class="img-rounded profile-thumbnail" src="{{ post.author.gravatar(size=40) }}">
+			</a>
+		</div>
+		<div class="post-date">{{ moment(post.timestamp).fromNow() }}</div>
+		<div class="post-author">
+			<a href="{{ url_for('.user', username=post.author.username) }}">
+				{{ post.author.username }}
+			</a>
+		</div>
+		<div class="post-body">{{ post.body }}</div>
+	</li>
+	{% endfor %}
+</ul>
+...
+```
+
+注意到`User.can()`方法用来对那些没有写文章权限的用户略过博客文章表单。博客文章列表以HTML无序列表实现，使用CSS类给它一个漂亮的格式。一个作者的小头像被渲染到了左边，头像和文章都被渲染为链接可以链接到用户的主页。使用的CSS样式存储在应用`static`文件夹中的`styles.css`中。
+
+#### 主页的博客文章
+
+用户主页可以通过显示该用户的博客文章来进行改善。
+
+*Example 11-5. app/main/views.py: Profile page route with blog posts*
+
+```python
+@main.route('/user/<username>')
+def user(username):
+	user = User.query.filter_by(username=username).first()
+		if user is None:
+			abort(404)
+	posts = user.posts.order_by(Post.timestamp.desc()).all()
+	return render_template('user.html', user=user, posts=posts)
+```
+
+一个用户的博客文章列表从`User.posts`关系中取得，是一个查询对象，所以像`order_by()`的过滤器也可以使用
+
+`user.html`模板需要`<ul>`HTML元素树来像在`index.html`中一样渲染博客文章列表。需要管理两份一样的HTML片段是不完美的，所以这种情况下，Jinja2的`include()`指令就非常有用了。`user.html`模板包含一个外部文件的列表。
+
+*Example 11-6. app/templates/user.html: Profile page template with blog posts*
+
+```html
+...
+<h3>Posts by {{ user.username }}</h3>
+{% include '_posts.html' %}
+...
+```
+
+为了完成这个重构，来自`index.html`的`<ul>`树被移动到新的模板文件`_posts.html`,使用另一个`include()`指令替换。注意到，在`_posts.html`中使用一个下划线前缀不是必须的。这仅仅是约束来区别独立的和部分的模板。
+
+#### 长博客文章列表分页
+
+随着网站的增长，博客文章的数目真多，它会变量和不实际的在主页和用户主页显示完整的博客文章列表。大的页面需要花费更长的时间来生成，下载，和在浏览器中渲染，所以用户体验的质量会随着页面变大而下降。解决方案就是分页数据，然后以块的形式渲染。
+
+##### 创建博客文章假数据
+
+为了能够演示多页的博客文章，很有必要有一个拥有大量数据的测试数据库。手动添加数据库记录是浪费时间的和乏味的。一个自动的解决方法更适合。有几个Python包可以用来生成假信息，一个相当完整的例子就是`ForgeryPy`。使用pip安装：
+
+```shell
+venv) $ pip install forgerypy
+```
+
+严格来说，ForgeryPy包不是应用的依赖，因为它在开发阶段需要，*requirement.txt*可以被一个`requirements`
+
+的文件夹替换来存储不同的依赖。在这个新的文件夹，一个*dev.txt*文件可以列出在开发阶段的依赖，而一个*prod.txt*列出在生产阶段的依赖。因为由很多依赖都会在两个列表，所以可以增加一个*commons.txt*文件，接着*dev.txt*和*prod.txt* 使用`-r`前缀来包括它.
+
+*Example 11-7. requirements/dev.txt: Development requirements file*
+
+```html
+-r common.txt
+ForgeryPy==0.1
+```
+
+*Example 11-8. app/models.py: Generate fake users and blog posts*
+
+```python
+class User(UserMixin, db.Model):
+	# ...
+    @staticmethod
+    def generate_fake(count=100):
+        from sqlalchemy.exc import IntegrityError
+        from random import seed
+        import forgery_py
+
+        seed()
+        for i in range(count):
+            u = User(email=forgery_py.internet.email_address(),
+                     username=forgery_py.internet.user_name(True),
+                     password=forgery_py.lorem_ipsum.word(),
+                     confirmed=True,
+                     name=forgery_py.name.full_name(),
+                     location=forgery_py.address.city(),
+                     about_me=forgery_py.lorem_ipsum.sentence(),
+                     member_since=forgery_py.date.date(True))
+            db.session.add(u)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+ 
+class Post(db.Model):
+	# ...
+    @staticmethod
+    def generate_fake(count=100):
+        from random import seed, randint
+        import forgery_py
+
+        seed()
+        user_count = User.query.count()
+        for i in range(count):
+            u = User.query.offset(randint(0, user_count - 1)).first()
+            p = Post(body=forgery_py.lorem_ipsum.sentences(randint(1, 3)),
+                     timestamp=forgery_py.date.date(True),
+                     author=u)
+            db.session.add(p)
+            db.session.commit()
+```
+
+这些假数据对象的属性由ForgeryPy随机信息生成器生成，可以生成好看的姓名，邮箱，句子和更多的属性。
+
+用户的邮箱地址和用户名必须是唯一的，但是因为ForgeryPy以完全随机的形式生成这些信息，会有重复的风险，在这种不可能的情况下，数据库会话提交会抛出一个`IntegrityError`异常。在继续之前这种异常通过回滚会话来处理。循环迭代产生重复的值不会写到用户的数据库，所以假用户的总数可能小于要求的数。
+
+新的方法可以很容易的创建很多假的用户和文章
+
+```shell
+(venv) $ python manage.py shell
+>>> User.generate_fake(100)
+>>> Post.generate_fake(100)
+```
+
+如果你现在运行应用，你将会在主页看到一系列随机的博客文章
+
+##### 在页面上渲染数据
+
+*Example 11-9. app/main/views.py: Paginate the blog post list*
+
+```python
+@main.route('/', methods=['GET', 'POST'])
+def index():
+	# ...
+	page = request.args.get('page', 1, type=int)
+	pagination = Post.query.order_by(Post.timestamp.desc()).paginate(page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],error_out=False)
+	posts = pagination.items
+	return render_template('index.html', form=form, posts=posts,pagination=pagination)
+```
+
+要渲染的当前页码从当前请求的查询字符串中获得，作为`request.args`可用。当一个显示的页码没有提供，一个默认为1的页码被使用。`type=int`参数确保如果参数不能被转换到整数，默认值可以被返回。
+
+为了加载一个单页数据，调用`all()`被Flask-SQLAlchemy的`paginate()`方法替换。`paginate()`方法接收页码作为第一个和唯一一个必须的参数。一个可选的`per_page`参数可以被提供表明每页项的大小，如果参数没有提供，默认是每页20项。另一个可选的参数的叫`error_out`可以被设置为True(默认设置)来抛出一个404错误，当一个页码不在被请求的有效范围内。如果`error_out`是False，返回一个空项列表。为了让页面大小可配置的，`per_page`参数的值从应用的具体配置的变量叫`FLASKY_POSTS_PER_PAGE`读取。
+
+应用这些改变，在主页的博客文章列表将会显示有限的项，为了看第二页的文章，在浏览器地址栏的URL后增加`?page=2`查询字符串
+
+##### 增加分页部件
+
+`paginate()`方法返回的值是一个`Pagination`对象，由Flask-SQLAlchemy定义的类。这个对象包含几种属性对在模板中生成页码链接是有用的。所以把它作为一个参数传递给模板。分页对象的属性总结显示在下面
+
+*Table 11-1. Flask-SQLAlchemy pagination object attributes*
+
+| 属性         | 描述          |
+| ---------- | ----------- |
+| `items`    | 当前页的记录      |
+| `query`    | 用来分页的源查询    |
+| `page`     | 当前页码        |
+| `prev_num` | 上一个页码       |
+| `next_num` | 下一个页码       |
+| `has_next` | 为True表示有下一页 |
+| `has_prev` | 为True表示有上一页 |
+| `pages`    | 查询的总页数      |
+| `per_page` | 每页显示项的个数    |
+| `total`    | 由查询返回的项的总数  |
+
+分页对象同时也有一些方法
+
+*Table 11-2. Flask-SQLAlchemy pagination object attributes*
+
+| 方法                                       | 描述                                       |
+| ---------------------------------------- | :--------------------------------------- |
+| `iter_pages(left_edge=2,left_current=2.right_current=5，right_edge=2)` | 一个返回页码序列的迭代器，在一个分页部件中显示，这个列表会在左边有`left_edge`的页。当前页的左边有`left_current`个页，在当前页的右边会有`right_cuurent`个页码，在最右边有`right_edge`个页码。例如对于总页100，当前页为50的例子来说，生成的页码默认为`1,2，None，48，49,50,51,52,53,54,55，None，99,100` |
+| `prev()`                                 | 一个分页对象的上一页                               |
+| `next()`                                 | 一个分页对象的下一页                               |
+
+为了使用Bootstrap的分页CSS类来武装这个强大的对象，这是相当容易在模板中构建一个分页页脚。
+
+*Example 11-10. app/templates/_macros.html: Pagination template macro*
+
+```html
+{% macro pagination_widget(pagination, endpoint) %}
+<ul class="pagination">
+	<li {% if not pagination.has_prev %} class="disabled" {% endif %}>
+		<a href="{% if pagination.has_prev %}{{ url_for(endpoint,
+			page = pagination.page - 1, **kwargs) }}{% else %}#{% endif %}">
+			&laquo;
+		</a>
+	</li>
+	{% for p in pagination.iter_pages() %}
+		{% if p %}
+			{% if p == pagination.page %}
+			<li class="active">
+				<a href="{{ url_for(endpoint, page = p, **kwargs) }}">{{ p }}</a>
+			</li>
+			{% else %}
+			<li>
+				<a href="{{ url_for(endpoint, page = p, **kwargs) }}">{{ p }}</a>
+			</li>
+			{% endif %}
+		{% else %}
+		<li class="disabled"><a href="#">&hellip;</a></li>
+		{% endif %}
+	{% endfor %}
+	<li {% if not pagination.has_next %} class="disabled"{% endif %}>
+		<a href="{% if pagination.has_next %}{{ url_for(endpoint,
+			page = pagination.page + 1, **kwargs) }}{% else %}#{% endif %}">
+			&raquo;
+		</a>
+	</li>
+</ul>
+{% endmacro %}
+```
+
+这个宏创建了一个Bootstrap分页元素，以无序列表的样式。在其中它定义了下列页面链接：
+
+- 一个`上一页`链接，如果当前页是第一页，这个链接会被禁用
+- 所有由分页对象的`iter_pages()`迭代器返回的所有页码的链接
+- 一个`下一页`链接，如果当前页是最后一页，这个链接会被禁用
+
+Jinja2的宏总是接收关键字参数必须包含在`**kwargs`参数列表。分页宏把它接收到的所有参数传递给`url_for()`来生成分页链接。这个方法可以被用来像有一个动态部分的路由。
+
+`pagination_widget`可以在*index.html*和*user.html* 中增加在`_posts.html`之下。
+
+*Example 11-11. app/templates/index.html: Pagination footer for blog post lists*
+
+```html
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+{% import "_macros.html" as macros %}
+...
+{% include '_posts.html' %}
+<div class="pagination">
+	{{ macros.pagination_widget(pagination, '.index') }}
+</div>
+{% endif %}
+```
+
+#### 使用Markdown和Flask-PageDown开发富文本文章
+
+普通文本的文章对短消息和状态更新是有效的，但是用户想要写长文章就会发现这种格式是非常受限的。在这一部分，输入文章的文本域将会升级来支持Markdown语法和显示一个文章的富文本预览。
+
+实现这个功能需要一些新的包：
+
+- PageDown，一个客户端的用JavaScript实现的Markdown到HTML的转换器。
+- Flask-PageDown，一个Flask的PageDown包装器，使Flask-WTF 表单 集成了PageDown
+- Markdown，一个服务端由Python实现的Markdown到HTML的转换器
+- Bleach，一个由Python实现的HTML安全器
+
+使用pip进行安装
+
+```shell
+(venv) $ pip install flask-pagedown markdown bleach
+```
+
+##### 使用Flask-PageDown
+
+Flask-PageDown扩展定义了一个`PageDownFIeld`类和WTForm的`TextAreaField`有同样的页面。在使用这个字段之前，扩展需要被初始化。
+
+*Example 11-12. app/__init__.py: Flask-PageDown initialization*
+
+```python
+from flask.ext.pagedown import PageDown
+# ...
+pagedown = PageDown()
+# ...
+def create_app(config_name):
+	# ...
+	pagedown.init_app(app)
+	# ...
+```
+
+为了转换主页的文本域到Markdown富文本编辑器。PostForm的body字段必须被替换成`PageDownField`
+
+*Example 11-13. app/main/forms.py: Markdown-enabled post form*
+
+```python
+from flask.ext.pagedown.fields import PageDownField
+
+class PostForm(Form):
+	body = PageDownField("What's on your mind?", validators=[Required()])
+	submit = SubmitField('Submit')
+```
+
+Markdown预览需要PageDown库的帮助才能被生成，所以这些必须要增加到模板中。Flask-PageDown简化了这个任务，通过提示一个模板宏包含了来自一个CDN的需要的文件。
+
+*Example 11-14. app/index.html: Flask-PageDown template declaration*
+
+```html
+{% block scripts %}
+{{ super() }}
+{{ pagedown.include_pagedown() }}
+{% endblock %}
+```
+
+通过这些改变，在文本域字段输入的Markdown格式的文本将会被在下面的预览区域立即生成HTML
+
+##### 在服务器端处理富文本
+
+当表单被提交时，只有原始的Markdown文本被POST请求发送。显示在页面上的HTML预览被废弃了。使用表单发送生成后的HTML预览可以被认为有安全风险的。因为这对于攻击者来说非常容易构造一个不匹配Markdown源的HTML序列并提交他们。为了避免任何风险，只有Markdown原始文本被提交，在服务器端使用Markdown(一个Python Markdown到HTML的转换器) 将它再次转换为HTML。产生的HTML会使用Bleach进行清理，来确保只有一部分允许使用的HTML标签。
+
+为了避免重复，当博客文章被创建的时候，只做一次转换。渲染后的博客文章的HTML代码缓存在一个Post新增加的字段中，可以被直接访问。原始的Markdown源代码也会被保存在数据库以防文章需要被编辑。
+
+*Example 11-15. app/models/post.py: Markdown text handling in the Post model*
+
+```python
+from markdown import markdown
+import bleach
+class Post(db.Model):
+	# ...
+	body_html = db.Column(db.Text)
+	# ...
+    
+	@staticmethod
+	def on_changed_body(target, value, oldvalue, initiator):
+		allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
+						'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
+						'h1', 'h2', 'h3', 'p']
+		target.body_html = bleach.linkify(bleach.clean(
+					markdown(value, output_format='html'),
+								tags=allowed_tags, strip=True))
+        
+        
+db.event.listen(Post.body, 'set', Post.on_changed_body)
+```
+
+`on_chaged_body`函数被作为一个body的SQLAlchemy的 `set`事件监听器注册。这意味着每当这个类的任意实例的body字段被设置了新的值，它都会自动被调用。函数渲染body的HTML版本并把它存在body_html中。有效的全自动的让Markdown文本到HTML转换。
+
+实际的转换做了三个步骤：首先`markdown()`函数做一个初始化转换到HTML，结果传递给`clean()`，提供一个允许的HTML标签列表。`clean()`函数删除不在白名单的任何标签。最终的转换是由`linkify()`完成，Bleach提供的另一个函数转换任何的写在普通文编的URL到恰当的`<a>`链接。最后一步是必须的，因为自动生成链接不在Markdown的规范里。PageDown支持他作为一个扩展。
+
+最后一个改变是当可用的时候在模板中使用  `post.body_html`替换`post.body`
+
+```html
+...
+<div class="post-body">
+{% if post.body_html %}
+	{{ post.body_html | safe }}
+{% else %}
+	{{ post.body }}
+{% endif %}
+</div>
+...
+```
+
+当在渲染HTML body的时候，`| safe`后缀告诉Jinja2不要转义HTML元素。默认情况下，Jinja2会转义所有的模板变量，Markdown生成的HTML是在服务器生成。，所以渲染它是安全的。
+
+#### 博客文章的永久链接
+
+用户可能和社交网络上的朋友分享具体的博客文章，为了这个目的，每个博客都会被赋予一个唯一引用它的URL页面
+
+*Example 11-17. app/main/views.py: Permanent links to posts*
+
+```python
+@main.route('/post/<int:id>')
+def post(id):
+	post = Post.query.get_or_404(id)
+	return render_template('post.html', posts=[post])
+```
+
+永久链接被增加到了公用的`_posts.html`模板的底部
+
+*Example 11-18. app/templates/_posts.html: Permanent links to posts*
+
+```python
+<ul class="posts">
+	{% for post in posts %}
+	<li class="post">
+		...
+		<div class="post-content">
+			...
+			<div class="post-footer">
+				<a href="{{ url_for('.post', id=post.id) }}">
+					<span class="label label-default">Permalink</span>
+				</a>
+			</div>
+		</div>
+	</li>
+	{% endfor %}
+</ul>
+```
+
+*Example 11-19. app/templates/post.html: Permanent link template*
+
+```python
+{% extends "base.html" %}
+
+{% block title %}Flasky - Post{% endblock %}
+
+{% block page_content %}
+{% include '_posts.html' %}
+{% endblock %}
+```
+
+#### 博客文章编辑器
+
+与博客文章相关的最后一个功能就是允许用户编辑他们自己的文章。博客文章编辑器放在一个单独的页面，
+
+*Example 11-20. app/templates/edit_post.html: Edit blog post template*
+
+```html
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}Flasky - Edit Post{% endblock %}
+
+{% block page_content %}
+    <div class="page-header">
+        <h1>Edit Post</h1>
+    </div>
+    <div>
+        {{ wtf.quick_form(form) }}
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    {{ pagedown.include_pagedown() }}
+{% endblock %}
+```
+
+*Example 11-21. app/main/views.py: Edit blog post route*
+
+```python
+@main.route('/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit(id):
+    post = Post.query.get_or_404(id)
+    if current_user != post.auhor and not current_user.can(Permission.ADMINISTER):
+        abort(403)
+    form = PostForm()
+    if form.validate_on_submit():
+        post.body = form.body.data
+        db.session.add(post)
+        flash('The post has been updated.')
+        return redirect(url_for('post', id=post.id))
+    form.body.data = post.body
+    return render_template('edit_post.html', form=form)
+```
+
+这个视图函数被编写除了管理员之后，只允许一个博客文章的作者去编辑它。管理员允许编辑所有用户的文章。如果一个用户试图编辑一个来自其他用户的文章，视图函数将会响应一个403错误。在这`PostForm`表单类和在主页使用的类是一样的。
+
+为了完成这个功能，一个链接到博客编辑器的链接在每个博客文章下被增加了。
+
+*Example 11-22. app/templates/_posts.html: Edit blog post links*
+
+```html
+<ul class="posts">
+    {% for post in posts %}
+        <li class="post">
+            <div class="post-thumbnail">
+                <a href="{{ url_for('.user', username=post.author.username) }}">
+                    <img class="img-rounded profile-thumbnail" src="{{ post.author.gravatar(size=40) }}">
+                </a>
+            </div>
+            <div class="post-content">
+                <div class="post-date">{{ moment(post.timestamp).fromNow() }}</div>
+                <div class="post-author"><a
+                        href="{{ url_for('.user', username=post.author.username) }}">{{ post.author.username }}</a>
+                </div>
+                <div class="post-body">
+                    {% if post.body_html %}
+                        {{ post.body_html | safe }}
+                    {% else %}
+                        {{ post.body }}
+                    {% endif %}
+                </div>
+                <div class="post-footer">
+                    <a href="{{ url_for('.post',id=post.id) }}">
+                        <span class="label label-default">Permalink</span>
+                    </a>
+                    {% if current_user == post.author %}
+                        <a href="{{ url_for('.edit', id=post.id) }}">
+                            <span class="label label-primary">Edit</span>
+                        </a>
+                    {% elif current_user.is_administrator() %}
+                        <a href="{{ url_for('.edit', id=post.id) }}">
+                            <span class="label label-danger">Edit [Admin]</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </li>
+    {% endfor %}
+</ul>
+```
+
+这个改变增加了一个编辑链接到当前用户被授修改的博客文章，对于管理员来说，这个链接增加到所有的博客文章。
