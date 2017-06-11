@@ -3346,12 +3346,12 @@ def edit_profile_admin(id):
 
 *Table 10-1. Gravatar query string arguments*
 
-| 参数名  | 描述                                       |
-| ---- | ---------------------------------------- |
-| `s`  | 图片大小，以像素为单位                              |
-| `r`  | 图片评级，选项是`g`,`pg`,`r`,`x`                 |
-| `d`  | 默认图片生成器，选项是404或一个URL指向默认的图片，图片生成器`mm`,`identicon`,`monsterid`,`wavatar`,`retro`,`blank` |
-| `fd` | 强制使用默认头像                                 |
+| 参数名                                      | 描述          |
+| ---------------------------------------- | ----------- |
+| `s`                                      | 图片大小，以像素为单位 |
+| `r`  | 图片评级，选项是`g`,`pg`,`r`,`x`          |             |
+| `d`  | 默认图片生成器，选项是404或一个URL指向默认的图片，图片生成器`mm`,`identicon`,`monsterid`,`wavatar`,`retro`,`blank` |             |
+| `fd`                                     | 强制使用默认头像    |
 
 如何构造一个Gravatar URL的技术可以被增加到`User`模型
 
@@ -3675,11 +3675,11 @@ def index():
 
 *Table 11-2. Flask-SQLAlchemy pagination object attributes*
 
-| 方法                                       | 描述                                       |
-| ---------------------------------------- | :--------------------------------------- |
-| `iter_pages(left_edge=2,left_current=2.right_current=5，right_edge=2)` | 一个返回页码序列的迭代器，在一个分页部件中显示，这个列表会在左边有`left_edge`的页。当前页的左边有`left_current`个页，在当前页的右边会有`right_cuurent`个页码，在最右边有`right_edge`个页码。例如对于总页100，当前页为50的例子来说，生成的页码默认为`1,2，None，48，49,50,51,52,53,54,55，None，99,100` |
-| `prev()`                                 | 一个分页对象的上一页                               |
-| `next()`                                 | 一个分页对象的下一页                               |
+| 方法                                       | 描述         |
+| ---------------------------------------- | :--------- |
+| `iter_pages(left_edge=2,left_current=2.right_current=5，right_edge=2)` | 一个返回页码序列的迭代器，在一个分页部件中显示，这个列表会在左边有`left_edge`的页。当前页的左边有`left_current`个页，在当前页的右边会有`right_cuurent`个页码，在最右边有`right_edge`个页码。例如对于总页100，当前页为50的例子来说，生成的页码默认为`1,2，None，48，49,50,51,52,53,54,55，None，99,100` |            |
+| `prev()`                                 | 一个分页对象的上一页 |
+| `next()`                                 | 一个分页对象的下一页 |
 
 为了使用Bootstrap的分页CSS类来武装这个强大的对象，这是相当容易在模板中构建一个分页页脚。
 
@@ -3992,3 +3992,172 @@ def edit(id):
 ```
 
 这个改变增加了一个编辑链接到当前用户被授修改的博客文章，对于管理员来说，这个链接增加到所有的博客文章。
+
+### 第十二章 关注
+
+社交web应用允许用户和其他用户联系。应用叫这些关系如关注，朋友，联系人等等，但是不管名字是什么，功能是一样的。
+
+在这一章，我们会将会学习到如何为Flasky实现关注的功能。
+
+用户允许关注其他用户
+
+#### 重访数据库关系
+
+一对多关系是最常用的关系类型，一个链接链接到其他记录的列表。为了实现这种类型的关系，在多的一方的元素有一个外键来指向一个元素的一方。当前的应用示例包含了两个一对多关系，一个角色对应多个用户，一个用户对应多个博客文章。
+
+大多数的其他关系类型可以从一对多类型派生出来。多对多的关系从多的一方视角来看也是一个一对多关系。一对一关系类型是一对多关系的简化，多的一方被限制为最多只能拥有一个元素。
+
+##### 自我引用的关系
+
+一个多对多关系可以用于用户关注其他用户，但是这样会有一个问题。在上面学生可科目的例子中，有两个非常清楚的定义实体由一个关联表联系到了一起。然而，为了表示用户关注其他用户，它就只是用户，没有第二个实体。
+
+一个关系的两方都属于同一张表的这种关系叫做自我引用关系。在这种情况下，关系左边的实体是用户，被叫做关注者，在关系右边的实体也是用户，但是这些是**被关注者**。从概念上讲，自我引用的关系和普通的关系没什么不同，只是他们很难去考虑。
+
+这种情况下的关系表叫做`follows`,表中的每一行代表一个用户关注着另外一个用户。
+
+##### 高级多对多关系
+
+使用一个自我引用的多对多关系配置，数据库可以表述关注者，但是会有一个限制。一个多对多关系的常用需求就是存储额外的数据给两个实体之间的链接。
+
+为了能够在关系中使用自定义数据，关联表必须是一个应用可以访问的合适的模型。
+
+*Example 12-1. app/models/user.py: The follows association table as a model*
+
+```python
+class Follow(db.Model):
+    __tablename__ = 'follows'
+    follower_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    followed_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+```
+
+SQLAlchemy不能透明的使用关联表，因为那不会给应用访问关联表的自定义字段。相反，多对多关系可以被分成两个基本的一对多关系。
+
+*Example 12-2. app/models/user.py: 一个多对多关系作为两个一对多关系实现*
+
+```python
+class User(UserMixin, db.Model):
+	# ...
+	followed = db.relationship('Follow',
+								foreign_keys=[Follow.follower_id],
+								backref=db.backref('follower', lazy='joined'),
+								lazy='dynamic',
+								cascade='all, delete-orphan')
+	followers = db.relationship('Follow',
+                                foreign_keys=[Follow.followed_id],
+                                backref=db.backref('followed', lazy='joined'),
+                                lazy='dynamic',
+                                cascade='all, delete-orphan')
+```
+
+这儿`followed`和`followers`关系被作为单独的一对多关系定义，注意这是必须的来消除外键的任何歧义，通过在每个关系中使用`foreign_keys`可选参数来定义外键。`db.backref()`参数在这些关系中不会互相提供。反向引用被用于`Follow`模型。
+
+反向引用的`lazy`参数被定义为`joined`，这个懒加载模式引起了相关的对象被立即加载从join查询。例如，如果一个用户正在关注其他100个用户，调用`user.followed.all()`将会返回100个`Follow`实例列表，每一个都有`follower`和`followed`反向引用属性设置到相应的用户。`lazy='joined'`模式启用这个功能来自一个单数据库查询
+
+`cascade`参数配置了在一个父对象上的操作，相关的子对象如何执行的功能。例如，当一个对象被添加到数据库会话，任意它相关的对象都应该自动增加到会话。
+
+应用现在需要工作于多对多关系来实现多对多的功能。因为有操作需要经常重复，最好在User模型中为所有可能的操作创建一个帮助方法。
+
+*Example 12-3. app/models/user.py: Followers helper methods*
+
+```python
+class User(db.Model):
+	# ...
+	def follow(self, user):
+		if not self.is_following(user):
+			f = Follow(follower=self, followed=user)
+			db.session.add(f)
+            
+	def unfollow(self, user):
+		f = self.followed.filter_by(followed_id=user.id).first()
+		if f:
+			db.session.delete(f)
+            
+	def is_following(self, user):
+		return self.followed.filter_by(followed_id=user.id).first() is not None
+    
+	def is_followed_by(self, user):
+    	return self.followers.filter_by(follower_id=user.id).first() is not None
+```
+
+`follow()`方法手动插入一个`Follow`实例在关联表中，链接一个关注者到一个被关注者，给了应用机会去设置自定义字段。链接中的两个用户被手动赋值给新的`Follow`实例在它的构造器。注意到没有必要手动设置`timestamp`字段，因为它被定义了一个当前日期和时间的默认值。
+
+#### 用户主页的关注者
+
+用户主页需要显示一个关注按钮，如果用户看到它，说明用户未关注，或者一个取消关注按钮，如果用户是已关注。
+
+*Example 12-4. app/templates/user.html: 关注*
+
+```html 
+{% if current_user.can(Permission.FOLLOW) and user != current_user %}
+	{% if not current_user.is_following(user) %}
+		<a href="{{ url_for('.follow', username=user.username) }}"
+			class="btn btn-primary">Follow</a>
+	{% else %}
+		<a href="{{ url_for('.unfollow', username=user.username) }}"
+			class="btn btn-default">Unfollow</a>
+	{% endif %}
+{% endif %}
+
+<a href="{{ url_for('.followers', username=user.username) }}">
+	Followers: <span class="badge">{{ user.followers.count() }}</span>
+</a>
+
+<a href="{{ url_for('.followed_by', username=user.username) }}">
+	Following: <span class="badge">{{ user.followed.count() }}</span>
+</a>
+{% if current_user.is_authenticated and user != current_user and
+user.is_following(current_user) %}
+	| <span class="label label-default">Follows you</span>
+{% endif %}
+```
+
+有4个新的端点在这些模板中被定义。`/follow/<user-name>`路由被调用当一个用户在另外一个用户的主页点击关注按钮。
+
+*Example 12-5. app/main/views.py: Follow route and view function*
+
+```python
+@main.route('/follow/<username>')
+@login_required
+@permission_required(Permission.FOLLOW)
+def follow(username):
+	user = User.query.filter_by(username=username).first()
+	if user is None:
+		flash('Invalid user.')
+		return redirect(url_for('.index'))
+	if current_user.is_following(user):
+		flash('You are already following this user.')
+		return redirect(url_for('.user', username=username))
+	current_user.follow(user)
+	flash('You are now following %s.' % username)
+	return redirect(url_for('.user', username=username))
+```
+
+这个视图函数加载被请求的用户，校验他是有效的，并且还没有被当前用户所关注，然后调用`follow()`帮助函数建立链接，`/unfollow/<username>`以相似的方式实现。
+
+`followers/<username>`路由被调用，当一个用户在主页点击了另外一个关注者数量，以下是实现
+
+*Example 12-6. app/main/views.py: Followers route and view function*
+
+```python
+@main.route('/followers/<username>')
+def followers(username):
+	user = User.query.filter_by(username=username).first()
+	if user is None:
+		flash('Invalid user.')
+		return redirect(url_for('.index'))
+	page = request.args.get('page', 1, type=int)
+	pagination = user.followers.paginate(
+			page, per_page=current_app.config['FLASKY_FOLLOWERS_PER_PAGE'],
+			error_out=False)
+	follows = [{'user': item.follower, 'timestamp': item.timestamp} for item in pagination.items]
+	return render_template('followers.html', user=user, title="Followers of",
+			endpoint='.followers', pagination=pagination,follows=follows)
+```
+
+这个函数加载和校验被请求的用户，接着分页它的`followers`关系使用之前学习到的技术，因为查询followers返回`Follow`实例，列表被转换为包含在每个实体包含user和timestamp字段的另外一个列表，这样渲染起来会简单一点。
+
+#### 使用数据库Join查询关注的用户的博客文章
+
+
+
