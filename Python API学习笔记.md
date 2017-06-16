@@ -89,3 +89,37 @@ score 91.1
 loves ['zhangsan', 'lisi']
 ```
 
+#### `namedtuple`
+
+`def namedtuple(typename,field_names,verbose=False,rename=False)`
+
+返回一个带有命名字段的元组子类
+
+类型的名称和字段的名称必须是字符串，并且不能是关键字，并且字段的名称不能以下划线开头，并且不能有重复的名称字段。
+
+支持所有的元组操作
+
+`__add__`： 等价于`t1+t2`
+
+`__mul__`：等价于`t1*n`
+
+`__getitem__`： 等价于`t[n]`
+
+`def count(self, x):`：计算x的个数
+
+`def index(self, x, i=None, j=None):` ： 计算x第一次出现的索引位置
+
+`def __iter__(self):`： 可迭代的对象
+
+#### `heapq`
+
+`heappush(heap,item)`将项添加到堆中
+
+`heappop(heap)` 弹出堆中最小的项
+
+`heapify(x)` 将列表转换为堆
+
+`nsmallest(n, iterable, key=None)` 在一个数据集中找到最小的n个项
+
+`nlargest(n, iterable, key=None)` 在一个数据集中找到最大的n个项
+
